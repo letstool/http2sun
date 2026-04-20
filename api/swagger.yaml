@@ -1,0 +1,128 @@
+openapi: 3.1.0
+info:
+  title: Sun-over-HTTP API
+  version: 1.0.0
+  description: |
+    HTTP service that returns solar position data (sunrise, sunset, twilights,
+    solar noon, and sun angles) for any location on Earth.
+
+    All times are returned in the timezone specified by the `timezone` field
+    (IANA format). If no timezone is provided, UTC is used.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development environment
+
+tags:
+  - name: Sun
+    description: Solar position and event operations
+
+paths:
+  /api/v1/sun:
+    post:
+      tags: [Sun]
+      summary: Get solar data for a given location and time
+      operationId: getSun
+      description: >
+        Accepts a JSON body describing the observer location and optional time.
+        Returns sunrise, sunset, solar noon, twilight times, sun angles, and the
+        instantaneous sun position at the requested timestamp.
+        All times are expressed in the requested timezone (default: UTC).
+      requestBody:
+        required: true
+        description: Solar query parameters
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SunRequest"
+            examples:
+              paris_now:
+                summary: "Paris, now"
+                value: { latitude: 48.8566, longitude: 2.3522, timezone: "Europe/Paris" }
+              pau_tokyo_tz:
+                summary: "Pau in Asia/Tokyo timezone"
+                value: { latitude: 43.868, longitude: -0.493, timezone: "Asia/Tokyo", timestamp: 1776686217 }
+      responses:
+        "200":
+          description: Solar data for the requested location and time.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SunResponse"
+        "400":
+          description: Bad request — missing or invalid field.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "405":
+          description: Method not allowed — only POST is accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    SunRequest:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Observer latitude in decimal degrees.
+          example: 48.8566
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Observer longitude in decimal degrees.
+          example: 2.3522
+        timezone:
+          type: string
+          default: UTC
+          description: IANA timezone name of the observer's location. Used for all output times (default: UTC).
+          example: Europe/Paris
+        timestamp:
+          type: integer
+          format: int64
+          description: >
+            Unix timestamp in seconds (UTC epoch). Determines both the target day
+            and the instantaneous sun position. Defaults to current time when omitted.
+          example: 1745107200
+
+    SunResponse:
+      type: object
+      properties:
+        latitude:                    { type: number,  description: "Observer latitude (degrees)." }
+        longitude:                   { type: number,  description: "Observer longitude (degrees)." }
+        timezone:                    { type: string,  description: "IANA timezone used for output times." }
+        timestamp:                   { type: integer, description: "Unix timestamp of UTC midnight of the target local date." }
+        date:                        { type: string,  description: "Target date (YYYY-MM-DD) in the requested timezone." }
+        sunrise:                     { type: string,  description: "Sunrise time (HH:MM:SS). Empty during polar night." }
+        sunset:                      { type: string,  description: "Sunset time (HH:MM:SS). Empty during polar day." }
+        solar_noon:                  { type: string,  description: "Solar noon (HH:MM:SS)." }
+        day_length:                  { type: string,  description: "Day length (HH:MM:SS)." }
+        civil_twilight_begin:        { type: string,  description: "Civil twilight start (sun 6° below horizon)." }
+        civil_twilight_end:          { type: string,  description: "Civil twilight end." }
+        nautical_twilight_begin:     { type: string,  description: "Nautical twilight start (sun 12° below)." }
+        nautical_twilight_end:       { type: string,  description: "Nautical twilight end." }
+        astronomical_twilight_begin: { type: string,  description: "Astronomical twilight start (sun 18° below)." }
+        astronomical_twilight_end:   { type: string,  description: "Astronomical twilight end." }
+        sunrise_azimuth_deg:         { type: number,  description: "Sunrise azimuth from north, clockwise (°)." }
+        sunset_azimuth_deg:          { type: number,  description: "Sunset azimuth from north, clockwise (°)." }
+        noon_elevation_deg:          { type: number,  description: "Sun elevation at solar noon (°)." }
+        noon_azimuth_deg:            { type: number,  description: "Sun azimuth at solar noon — 180 (south) or 0 (north)." }
+        polar_day:                   { type: boolean, description: "True when the sun does not set." }
+        polar_night:                 { type: boolean, description: "True when the sun does not rise." }
+        current_azimuth_deg:         { type: number,  description: "Sun azimuth at the queried timestamp (°)." }
+        current_elevation_deg:       { type: number,  description: "Sun elevation at the queried timestamp (°)." }
+        current_time_local:          { type: string,  description: "Local time at the queried timestamp (HH:MM:SS)." }
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, description: "Human-readable error message." }

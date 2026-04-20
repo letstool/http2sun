@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" sizes="512x512" href="/favicon.png">
+<title>Solar Data — http2sun</title>
+<style>
+:root{--bg:#0a0e14;--surface:#0f1520;--border:#1e2d45;--border-hi:#2a4060;--accent:#00d4ff;--accent2:#0090cc;--accent-dim:#003a52;--text:#c8d8e8;--text-dim:#4a6480;--text-mid:#7a9ab8;--ok:#00b87a;--ok-dim:#003d2a;--warn:#ffb340;--warn-dim:#3d2a00;--err:#ff4e6a;--err-dim:#3d0010;--grid-a:rgba(30,45,69,.30);--grid-b:rgba(30,45,69,.15);--radial:rgba(0,180,255,.07);--panel-tint:rgba(0,212,255,.04);--select-opt-bg:#0f1520;--raw-bg:#070b10;--focus-ring:#00d4ff;--mono:'Courier New','Lucida Console',monospace;--sans:system-ui,-apple-system,'Segoe UI',Arial,sans-serif}
+[data-theme=light]{--bg:#eef3f9;--surface:#ffffff;--border:#c8d8ec;--border-hi:#a0bcd8;--accent:#0070a0;--accent2:#005278;--accent-dim:#d4eaf8;--text:#152030;--text-dim:#7898b8;--text-mid:#3a6080;--ok:#006e48;--ok-dim:#d0f0e4;--warn:#8c5200;--warn-dim:#fff0d0;--err:#b0002a;--err-dim:#fde8ef;--grid-a:rgba(150,190,225,.28);--grid-b:rgba(150,190,225,.14);--radial:rgba(0,120,180,.06);--panel-tint:rgba(0,112,160,.04);--select-opt-bg:#ffffff;--raw-bg:#f4f8fc;--focus-ring:#005278}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+.skip-link{position:absolute;top:-100px;left:16px;z-index:9999;background:var(--accent);color:var(--bg);font-family:var(--mono);font-size:.85rem;font-weight:700;padding:10px 18px;border-radius:0 0 6px 6px;text-decoration:none;letter-spacing:.08em;transition:top .2s}
+.skip-link:focus{top:0;outline:3px solid var(--focus-ring);outline-offset:2px}
+:focus-visible{outline:2px solid var(--focus-ring);outline-offset:3px;border-radius:3px}
+:focus:not(:focus-visible){outline:none}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column;align-items:center}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(var(--grid-a) 1px,transparent 1px),linear-gradient(90deg,var(--grid-a) 1px,transparent 1px),linear-gradient(var(--grid-b) 1px,transparent 1px),linear-gradient(90deg,var(--grid-b) 1px,transparent 1px);background-size:80px 80px,80px 80px,20px 20px,20px 20px}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 80% 55% at 50% 10%,var(--radial),transparent 70%)}
+.shell{position:relative;z-index:1;width:100%;max-width:780px;padding:0 16px 60px}
+header{display:flex;align-items:center;justify-content:space-between;padding:26px 0 18px;gap:12px}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-icon{width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;box-shadow:0 0 22px color-mix(in srgb,var(--accent) 35%,transparent)}
+.brand-name{font-family:var(--mono);font-size:1.3rem;font-weight:700;letter-spacing:-.02em;color:var(--accent)}
+.brand-tagline{font-size:.70rem;color:var(--text-dim);letter-spacing:.07em;margin-top:2px}
+.header-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.lang-select,.theme-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-mid);border-radius:6px;padding:6px 10px;font-family:var(--mono);font-size:.78rem;cursor:pointer;transition:border-color .2s,color .2s}
+.lang-select option{background:var(--select-opt-bg)}
+.lang-select:hover,.theme-btn:hover{border-color:var(--accent);color:var(--accent)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;background-image:linear-gradient(135deg,var(--panel-tint),transparent);transition:border-color .25s}
+.panel:hover{border-color:var(--border-hi)}
+.panel+.panel{margin-top:14px}
+.panel-title{font-family:var(--mono);font-size:.70rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.panel-title::before{content:'';display:inline-block;width:3px;height:11px;background:var(--accent);border-radius:2px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-family:var(--mono);font-size:.68rem;font-weight:600;letter-spacing:.09em;color:var(--text-dim);text-transform:uppercase}
+.field label .req{color:var(--accent);margin-left:2px}
+.field input,.field select{background:var(--raw-bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:9px 12px;font-family:var(--mono);font-size:.87rem;transition:border-color .2s,box-shadow .2s;appearance:none;width:100%}
+.field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a9ab8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:30px}
+.field input:hover,.field select:hover{border-color:var(--border-hi)}
+.field input:focus,.field select:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent)}
+.field select option{background:var(--select-opt-bg)}
+.submit-row{display:flex;justify-content:flex-end;margin-top:14px}
+.btn-submit{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#08090c;border:none;border-radius:8px;padding:11px 26px;font-family:var(--mono);font-size:.88rem;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:opacity .2s,transform .1s,box-shadow .2s;box-shadow:0 0 18px color-mix(in srgb,var(--accent) 32%,transparent)}
+.btn-submit:hover{opacity:.9;box-shadow:0 0 32px color-mix(in srgb,var(--accent) 48%,transparent)}
+.btn-submit:active{transform:scale(.98)}
+.btn-submit:disabled{opacity:.4;cursor:not-allowed}
+.status-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.72rem;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:5px;border:1px solid}
+.status-ok{color:var(--ok);background:var(--ok-dim);border-color:var(--ok)}
+.status-err{color:var(--err);background:var(--err-dim);border-color:var(--err)}
+.result-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.result-meta{font-family:var(--mono);font-size:.75rem;color:var(--text-mid)}
+.arc-wrap{margin-bottom:18px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--raw-bg);padding:8px 4px 4px}
+.data-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:9px;margin-bottom:14px}
+.data-card{background:var(--raw-bg);border:1px solid var(--border);border-radius:8px;padding:11px 13px;display:flex;flex-direction:column;gap:3px}
+.dcl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text-dim)}
+.dcv{font-family:var(--mono);font-size:1.0rem;font-weight:700;color:var(--accent)}
+.dcv.na{color:var(--text-dim);font-size:.82rem}
+.tl-wrap{margin-bottom:14px}
+.tl-lbl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px}
+.tl-bar{position:relative;height:28px;border-radius:6px;overflow:hidden;background:#020304;border:1px solid var(--border)}
+.tls{position:absolute;top:0;height:100%}
+.tl-night{background:#02040a}
+.tl-astro{background:#0b1228}
+.tl-naut{background:#132040}
+.tl-civil{background:#1c3060}
+.tl-day{background:linear-gradient(90deg,#ff8800 0%,#ffcc00 50%,#ff8800 100%)}
+.tl-ticks{display:flex;justify-content:space-between;margin-top:3px}
+.tl-tick{font-family:var(--mono);font-size:.58rem;color:var(--text-dim)}
+.polar-banner{background:var(--warn-dim);border:1px solid var(--warn);border-radius:8px;padding:11px 15px;margin-bottom:12px;font-family:var(--mono);font-size:.82rem;color:var(--warn);display:flex;align-items:center;gap:10px}
+.error-panel{background:var(--err-dim);border:1px solid var(--err);border-radius:10px;padding:16px 18px;font-family:var(--mono);font-size:.84rem;color:var(--err);display:flex;align-items:flex-start;gap:10px}
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-row{display:flex;align-items:center;gap:10px;color:var(--text-dim);font-size:.84rem}
+.raw-toggle{background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:var(--mono);font-size:.68rem;cursor:pointer;letter-spacing:.06em;transition:border-color .2s,color .2s}
+.raw-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.raw-block{background:var(--raw-bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:var(--mono);font-size:.76rem;line-height:1.6;color:var(--text-mid);overflow-x:auto;max-height:340px;overflow-y:auto;margin-top:8px;white-space:pre}
+.json-key{color:var(--text-mid)}.json-str{color:#a0d878}.json-num{color:var(--accent)}.json-bool{color:#88aaff}.json-null{color:var(--text-dim)}
+footer{color:var(--text-dim);font-size:.68rem;font-family:var(--mono);text-align:center;margin-top:16px;letter-spacing:.05em}
+footer a{color:var(--text-mid);text-decoration:none}
+footer a:hover{color:var(--accent)}
+[hidden]{display:none!important}
+.sect-title{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin:14px 0 8px;padding-left:2px}
+@media(max-width:520px){.form-grid{grid-template-columns:1fr}.data-grid{grid-template-columns:1fr 1fr}header{flex-direction:column;align-items:flex-start}}
+</style>
+</head>
+<body>
+<a href="#qform" class="skip-link">Skip to form</a>
+<div class="shell">
+<header>
+  <div class="brand">
+    <div class="brand-icon">☀️</div>
+    <div>
+      <div class="brand-name">http2sun</div>
+      <div class="brand-tagline" id="tagline">SOLAR DATA OVER HTTP</div>
+    </div>
+  </div>
+  <div class="header-controls">
+    <select class="lang-select" id="lsel" aria-label="Language">
+      <option value="ar">العربية</option><option value="bn">বাংলা</option>
+      <option value="zh">中文</option><option value="de">Deutsch</option>
+      <option value="en" selected>English</option><option value="es">Español</option>
+      <option value="fr">Français</option><option value="hi">हिंदी</option>
+      <option value="id">Bahasa Indonesia</option><option value="ja">日本語</option>
+      <option value="ko">한국어</option><option value="pt">Português</option>
+      <option value="ru">Русский</option><option value="ur">اردو</option>
+      <option value="vi">Tiếng Việt</option>
+    </select>
+    <button class="theme-btn" id="tbtn" aria-label="Toggle theme">◑</button>
+  </div>
+</header>
+
+<div class="panel" id="qpanel">
+  <div class="panel-title" id="ftitle">QUERY</div>
+  <main id="qform">
+    <div class="form-grid">
+      <div class="field">
+        <label for="finp-lat"><span id="lbl-lat">Latitude</span><span class="req">*</span></label>
+        <input type="number" id="finp-lat" step="any" min="-90" max="90" placeholder="48.8566" autocomplete="off"/>
+      </div>
+      <div class="field">
+        <label for="finp-lon"><span id="lbl-lon">Longitude</span><span class="req">*</span></label>
+        <input type="number" id="finp-lon" step="any" min="-180" max="180" placeholder="2.3522" autocomplete="off"/>
+      </div>
+      <div class="field">
+        <label for="finp-tz"><span id="lbl-tz">Timezone</span></label>
+        <select id="finp-tz">
+          <option value="UTC" selected>UTC</option>
+          <optgroup label="Africa">
+            <option value="Africa/Cairo">Africa/Cairo</option>
+            <option value="Africa/Casablanca">Africa/Casablanca</option>
+            <option value="Africa/Johannesburg">Africa/Johannesburg</option>
+            <option value="Africa/Lagos">Africa/Lagos</option>
+            <option value="Africa/Nairobi">Africa/Nairobi</option>
+          </optgroup>
+          <optgroup label="America">
+            <option value="America/Anchorage">America/Anchorage</option>
+            <option value="America/Argentina/Buenos_Aires">America/Argentina/Buenos_Aires</option>
+            <option value="America/Bogota">America/Bogota</option>
+            <option value="America/Chicago">America/Chicago</option>
+            <option value="America/Denver">America/Denver</option>
+            <option value="America/Lima">America/Lima</option>
+            <option value="America/Los_Angeles">America/Los_Angeles</option>
+            <option value="America/Mexico_City">America/Mexico_City</option>
+            <option value="America/New_York">America/New_York</option>
+            <option value="America/Phoenix">America/Phoenix</option>
+            <option value="America/Sao_Paulo">America/Sao_Paulo</option>
+            <option value="America/Toronto">America/Toronto</option>
+            <option value="America/Vancouver">America/Vancouver</option>
+          </optgroup>
+          <optgroup label="Asia">
+            <option value="Asia/Baghdad">Asia/Baghdad</option>
+            <option value="Asia/Bangkok">Asia/Bangkok</option>
+            <option value="Asia/Colombo">Asia/Colombo</option>
+            <option value="Asia/Dubai">Asia/Dubai</option>
+            <option value="Asia/Hong_Kong">Asia/Hong_Kong</option>
+            <option value="Asia/Jakarta">Asia/Jakarta</option>
+            <option value="Asia/Jerusalem">Asia/Jerusalem</option>
+            <option value="Asia/Karachi">Asia/Karachi</option>
+            <option value="Asia/Kolkata">Asia/Kolkata</option>
+            <option value="Asia/Kuala_Lumpur">Asia/Kuala_Lumpur</option>
+            <option value="Asia/Manila">Asia/Manila</option>
+            <option value="Asia/Riyadh">Asia/Riyadh</option>
+            <option value="Asia/Seoul">Asia/Seoul</option>
+            <option value="Asia/Shanghai">Asia/Shanghai</option>
+            <option value="Asia/Singapore">Asia/Singapore</option>
+            <option value="Asia/Taipei">Asia/Taipei</option>
+            <option value="Asia/Tehran">Asia/Tehran</option>
+            <option value="Asia/Tokyo">Asia/Tokyo</option>
+          </optgroup>
+          <optgroup label="Atlantic">
+            <option value="Atlantic/Reykjavik">Atlantic/Reykjavik</option>
+          </optgroup>
+          <optgroup label="Australia">
+            <option value="Australia/Adelaide">Australia/Adelaide</option>
+            <option value="Australia/Brisbane">Australia/Brisbane</option>
+            <option value="Australia/Darwin">Australia/Darwin</option>
+            <option value="Australia/Melbourne">Australia/Melbourne</option>
+            <option value="Australia/Perth">Australia/Perth</option>
+            <option value="Australia/Sydney">Australia/Sydney</option>
+          </optgroup>
+          <optgroup label="Europe">
+            <option value="Europe/Amsterdam">Europe/Amsterdam</option>
+            <option value="Europe/Athens">Europe/Athens</option>
+            <option value="Europe/Berlin">Europe/Berlin</option>
+            <option value="Europe/Brussels">Europe/Brussels</option>
+            <option value="Europe/Bucharest">Europe/Bucharest</option>
+            <option value="Europe/Dublin">Europe/Dublin</option>
+            <option value="Europe/Helsinki">Europe/Helsinki</option>
+            <option value="Europe/Istanbul">Europe/Istanbul</option>
+            <option value="Europe/Kiev">Europe/Kiev</option>
+            <option value="Europe/Lisbon">Europe/Lisbon</option>
+            <option value="Europe/London">Europe/London</option>
+            <option value="Europe/Madrid">Europe/Madrid</option>
+            <option value="Europe/Moscow">Europe/Moscow</option>
+            <option value="Europe/Oslo">Europe/Oslo</option>
+            <option value="Europe/Paris">Europe/Paris</option>
+            <option value="Europe/Prague">Europe/Prague</option>
+            <option value="Europe/Rome">Europe/Rome</option>
+            <option value="Europe/Stockholm">Europe/Stockholm</option>
+            <option value="Europe/Warsaw">Europe/Warsaw</option>
+            <option value="Europe/Zurich">Europe/Zurich</option>
+          </optgroup>
+          <optgroup label="Pacific">
+            <option value="Pacific/Auckland">Pacific/Auckland</option>
+            <option value="Pacific/Fiji">Pacific/Fiji</option>
+            <option value="Pacific/Honolulu">Pacific/Honolulu</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="field">
+        <label for="finp-ts"><span id="lbl-ts">Timestamp (UTC)</span></label>
+        <div style="display:flex;gap:6px">
+          <input type="number" id="finp-ts" step="1" placeholder="e.g. 1745107200" autocomplete="off" style="flex:1;min-width:0"/>
+          <button type="button" id="btn-now" title="Set to current time" style="background:var(--surface);border:1px solid var(--border);color:var(--text-mid);border-radius:7px;padding:0 11px;font-family:var(--mono);font-size:.78rem;cursor:pointer;white-space:nowrap;transition:border-color .2s,color .2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-mid)'">⟳ Now</button>
+        </div>
+      </div>
+    </div>
+    <div class="submit-row">
+      <button class="btn-submit" id="sbtn">☀ <span id="btn-lbl">Get Solar Data</span></button>
+    </div>
+  </main>
+</div>
+
+<div id="rarea"></div>
+
+<footer>
+  <a href="/openapi.json">OpenAPI 3.1</a> ·
+  NOAA Solar Algorithm · J. Meeus "Astronomical Algorithms"
+</footer>
+</div>
+
+<script>
+// ── I18N ──────────────────────────────────────────────────────────────────
+const TR={
+en:{tag:'SOLAR DATA OVER HTTP',ft:'QUERY',lat:'Latitude',lon:'Longitude',tz:'Observer timezone',ts:'Timestamp (UTC)',btn:'Get Solar Data',res:'SOLAR DATA',
+  sr:'Sunrise',ss:'Sunset',sn:'Solar Noon',dl:'Day Length',
+  cb:'Civil Twilight Start',ce:'Civil Twilight End',nb:'Nautical Twilight Start',ne:'Nautical Twilight End',
+  ab:'Astron. Twilight Start',ae:'Astron. Twilight End',
+  sraz:'Sunrise Azimuth',ssaz:'Sunset Azimuth',nel:'Noon Elevation',naz:'Noon Azimuth',
+  pd:'☀ Polar Day (midnight sun) — the sun does not set on this date.',
+  pn:'🌑 Polar Night — the sun does not rise on this date.',
+  na:'N/A',raw:'Raw JSON',tw:'TWILIGHTS',ang:'SUN ANGLES',curAz:'Current Azimuth',curEl:'Current Elevation',curTime:'Current Time'},
+fr:{tag:'DONNÉES SOLAIRES VIA HTTP',ft:'REQUÊTE',lat:'Latitude',lon:'Longitude',tz:'Fuseau horaire de l\'observateur',ts:'Timestamp (UTC)',btn:'Obtenir les données solaires',res:'DONNÉES SOLAIRES',
+  sr:'Lever du soleil',ss:'Coucher du soleil',sn:'Midi solaire',dl:'Durée du jour',
+  cb:'Début crépuscule civil',ce:'Fin crépuscule civil',nb:'Début crép. nautique',ne:'Fin crép. nautique',
+  ab:'Début crép. astronomique',ae:'Fin crép. astronomique',
+  sraz:'Azimut lever',ssaz:'Azimut coucher',nel:'Élévation à midi',naz:'Azimut à midi',
+  pd:'☀ Jour polaire — le soleil ne se couche pas ce jour-là.',pn:'🌑 Nuit polaire — le soleil ne se lève pas ce jour-là.',
+  na:'N/D',raw:'JSON brut',tw:'CRÉPUSCULES',ang:'ANGLES SOLAIRES',curAz:'Azimut actuel',curEl:'Élévation actuelle',curTime:'Heure actuelle'},
+de:{tag:'SOLARDATEN PER HTTP',ft:'ANFRAGE',lat:'Breitengrad',lon:'Längengrad',tz:'Zeitzone des Beobachters',ts:'Zeitstempel (UTC)',btn:'Solardaten abrufen',res:'SOLARDATEN',
+  sr:'Sonnenaufgang',ss:'Sonnenuntergang',sn:'Sonnenmittag',dl:'Tageslänge',
+  cb:'Beginn bürgerl. Dämmerung',ce:'Ende bürgerl. Dämmerung',nb:'Beginn naut. Dämmerung',ne:'Ende naut. Dämmerung',
+  ab:'Beginn astron. Dämmerung',ae:'Ende astron. Dämmerung',
+  sraz:'Azimut Aufgang',ssaz:'Azimut Untergang',nel:'Sonnenhöhe Mittag',naz:'Azimut Mittag',
+  pd:'☀ Polartag — die Sonne geht nicht unter.',pn:'🌑 Polarnacht — die Sonne geht nicht auf.',
+  na:'N/V',raw:'JSON anzeigen',tw:'DÄMMERUNG',ang:'SONNENWINKEL',curAz:'Aktueller Azimut',curEl:'Aktuelle Höhe',curTime:'Aktuelle Zeit'},
+es:{tag:'DATOS SOLARES POR HTTP',ft:'CONSULTA',lat:'Latitud',lon:'Longitud',tz:'Zona horaria del observador',ts:'Marca de tiempo (UTC)',btn:'Obtener datos solares',res:'DATOS SOLARES',
+  sr:'Amanecer',ss:'Atardecer',sn:'Mediodía solar',dl:'Duración del día',
+  cb:'Inicio crep. civil',ce:'Fin crep. civil',nb:'Inicio crep. náutico',ne:'Fin crep. náutico',
+  ab:'Inicio crep. astronómico',ae:'Fin crep. astronómico',
+  sraz:'Azimut amanecer',ssaz:'Azimut atardecer',nel:'Elevación al mediodía',naz:'Azimut al mediodía',
+  pd:'☀ Día polar — el sol no se pone.',pn:'🌑 Noche polar — el sol no sale.',
+  na:'N/D',raw:'JSON sin procesar',tw:'CREPÚSCULO',ang:'ÁNGULOS SOLARES',curAz:'Azimut actual',curEl:'Elevación actual',curTime:'Hora actual'},
+pt:{tag:'DADOS SOLARES VIA HTTP',ft:'CONSULTA',lat:'Latitude',lon:'Longitude',tz:'Fuso horário do observador',ts:'Data (UTC)',btn:'Obter dados solares',res:'DADOS SOLARES',
+  sr:'Nascer do sol',ss:'Pôr do sol',sn:'Meio-dia solar',dl:'Duração do dia',
+  cb:'Início crep. civil',ce:'Fim crep. civil',nb:'Início crep. náutico',ne:'Fim crep. náutico',
+  ab:'Início crep. astronômico',ae:'Fim crep. astronômico',
+  sraz:'Azimute nascer',ssaz:'Azimute pôr',nel:'Elevação ao meio-dia',naz:'Azimute ao meio-dia',
+  pd:'☀ Dia polar — o sol não se põe.',pn:'🌑 Noite polar — o sol não nasce.',
+  na:'N/D',raw:'JSON bruto',tw:'CREPÚSCULO',ang:'ÂNGULOS SOLARES',curAz:'Azimute atual',curEl:'Elevação atual',curTime:'Hora atual'},
+zh:{tag:'太阳数据 HTTP 服务',ft:'查询',lat:'纬度',lon:'经度',tz:'观测者时区',ts:'时间戳 (UTC)',btn:'获取太阳数据',res:'太阳数据',
+  sr:'日出',ss:'日落',sn:'正午',dl:'白昼时长',
+  cb:'民用晨昏开始',ce:'民用晨昏结束',nb:'航海晨昏开始',ne:'航海晨昏结束',
+  ab:'天文晨昏开始',ae:'天文晨昏结束',
+  sraz:'日出方位角',ssaz:'日落方位角',nel:'正午高度角',naz:'正午方位角',
+  pd:'☀ 极昼 — 本日太阳不落。',pn:'🌑 极夜 — 本日太阳不升。',
+  na:'不适用',raw:'原始 JSON',tw:'晨昏蒙影',ang:'太阳角度',curAz:'当前方位角',curEl:'当前高度角',curTime:'当前时间'},
+ja:{tag:'HTTP 経由の太陽データ',ft:'クエリ',lat:'緯度',lon:'経度',tz:'観測者のタイムゾーン',ts:'タイムスタンプ (UTC)',btn:'太陽データを取得',res:'太陽データ',
+  sr:'日の出',ss:'日の入り',sn:'南中時刻',dl:'昼の長さ',
+  cb:'薄明開始（市民）',ce:'薄明終了（市民）',nb:'薄明開始（航海）',ne:'薄明終了（航海）',
+  ab:'薄明開始（天文）',ae:'薄明終了（天文）',
+  sraz:'日の出方位角',ssaz:'日の入り方位角',nel:'南中高度',naz:'南中方位角',
+  pd:'☀ 白夜 — この日は太陽が沈みません。',pn:'🌑 極夜 — この日は太陽が昇りません。',
+  na:'該当なし',raw:'JSON 表示',tw:'薄明',ang:'太陽角度',curAz:'現在の方位角',curEl:'現在の高度',curTime:'現在時刻'},
+ko:{tag:'HTTP를 통한 태양 데이터',ft:'쿼리',lat:'위도',lon:'경도',tz:'관측자 시간대',ts:'타임스탬프 (UTC)',btn:'태양 데이터 가져오기',res:'태양 데이터',
+  sr:'일출',ss:'일몰',sn:'태양 정오',dl:'낮 길이',
+  cb:'시민 박명 시작',ce:'시민 박명 종료',nb:'항해 박명 시작',ne:'항해 박명 종료',
+  ab:'천문 박명 시작',ae:'천문 박명 종료',
+  sraz:'일출 방위각',ssaz:'일몰 방위각',nel:'정오 고도',naz:'정오 방위각',
+  pd:'☀ 극낮 — 이 날 태양이 지지 않습니다.',pn:'🌑 극밤 — 이 날 태양이 뜨지 않습니다.',
+  na:'해당 없음',raw:'JSON 보기',tw:'박명',ang:'태양 각도',curAz:'현재 방위각',curEl:'현재 고도',curTime:'현재 시간'},
+ru:{tag:'ДАННЫЕ О СОЛНЦЕ ЧЕРЕЗ HTTP',ft:'ЗАПРОС',lat:'Широта',lon:'Долгота',tz:'Часовой пояс наблюдателя',ts:'Метка времени (UTC)',btn:'Получить данные о солнце',res:'ДАННЫЕ О СОЛНЦЕ',
+  sr:'Восход',ss:'Закат',sn:'Полдень',dl:'Длина дня',
+  cb:'Начало граж. сумерек',ce:'Конец граж. сумерек',nb:'Начало нав. сумерек',ne:'Конец нав. сумерек',
+  ab:'Начало астр. сумерек',ae:'Конец астр. сумерек',
+  sraz:'Азимут восхода',ssaz:'Азимут заката',nel:'Высота в полдень',naz:'Азимут в полдень',
+  pd:'☀ Полярный день — солнце не заходит.',pn:'🌑 Полярная ночь — солнце не восходит.',
+  na:'Н/Д',raw:'JSON',tw:'СУМЕРКИ',ang:'УГЛЫ СОЛНЦА',curAz:'Текущий азимут',curEl:'Текущая высота',curTime:'Текущее время'},
+ar:{tag:'بيانات الشمس عبر HTTP',ft:'استعلام',lat:'خط العرض',lon:'خط الطول',tz:'المنطقة الزمنية للمراقب',ts:'الطابع الزمني (UTC)',btn:'الحصول على بيانات الشمس',res:'بيانات الشمس',
+  sr:'شروق الشمس',ss:'غروب الشمس',sn:'الظهر الشمسي',dl:'مدة النهار',
+  cb:'بداية الشفق المدني',ce:'نهاية الشفق المدني',nb:'بداية الشفق الملاحي',ne:'نهاية الشفق الملاحي',
+  ab:'بداية الشفق الفلكي',ae:'نهاية الشفق الفلكي',
+  sraz:'سمت الشروق',ssaz:'سمت الغروب',nel:'الارتفاع عند الظهر',naz:'السمت عند الظهر',
+  pd:'☀ يوم قطبي — الشمس لا تغرب.',pn:'🌑 ليل قطبي — الشمس لا تشرق.',
+  na:'غير متاح',raw:'JSON',tw:'الشفق',ang:'زوايا الشمس',curAz:'السمت الحالي',curEl:'الارتفاع الحالي',curTime:'الوقت الحالي'},
+hi:{tag:'HTTP के माध्यम से सौर डेटा',ft:'क्वेरी',lat:'अक्षांश',lon:'देशांतर',tz:'प्रेक्षक का समय क्षेत्र',ts:'समय मुहर (UTC)',btn:'सौर डेटा प्राप्त करें',res:'सौर डेटा',
+  sr:'सूर्योदय',ss:'सूर्यास्त',sn:'सौर मध्याह्न',dl:'दिन की लंबाई',
+  cb:'नागरिक संध्या प्रारंभ',ce:'नागरिक संध्या समाप्त',nb:'नौवहन संध्या प्रारंभ',ne:'नौवहन संध्या समाप्त',
+  ab:'खगोलीय संध्या प्रारंभ',ae:'खगोलीय संध्या समाप्त',
+  sraz:'उदय दिगंश',ssaz:'अस्त दिगंश',nel:'मध्याह्न उन्नयन',naz:'मध्याह्न दिगंश',
+  pd:'☀ ध्रुवीय दिन — सूर्य अस्त नहीं होता।',pn:'🌑 ध्रुवीय रात — सूर्य उदय नहीं होता।',
+  na:'N/A',raw:'JSON',tw:'संध्या',ang:'सौर कोण',curAz:'वर्तमान दिगंश',curEl:'वर्तमान उन्नयन',curTime:'वर्तमान समय'},
+bn:{tag:'HTTP-এ সৌর তথ্য',ft:'অনুসন্ধান',lat:'অক্ষাংশ',lon:'দ্রাঘিমাংশ',tz:'পর্যবেক্ষকের সময় অঞ্চল',ts:'টাইমস্ট্যাম্প (UTC)',btn:'সৌর তথ্য পান',res:'সৌর তথ্য',
+  sr:'সূর্যোদয়',ss:'সূর্যাস্ত',sn:'সৌর মধ্যাহ্ন',dl:'দিনের দৈর্ঘ্য',
+  cb:'নাগরিক গোধূলি শুরু',ce:'নাগরিক গোধূলি শেষ',nb:'নৌ-গোধূলি শুরু',ne:'নৌ-গোধূলি শেষ',
+  ab:'জ্যোতির্বৈজ্ঞানিক গোধূলি শুরু',ae:'জ্যোতির্বৈজ্ঞানিক গোধূলি শেষ',
+  sraz:'উদয় দিকবিন্দু',ssaz:'অস্ত দিকবিন্দু',nel:'মধ্যাহ্ন উচ্চতা',naz:'মধ্যাহ্ন দিকবিন্দু',
+  pd:'☀ মেরু দিন — সূর্য অস্ত যায় না।',pn:'🌑 মেরু রাত — সূর্য উদয় হয় না।',
+  na:'প্রযোজ্য নয়',raw:'JSON',tw:'গোধূলি',ang:'সৌর কোণ',curAz:'বর্তমান দিকবিন্দু',curEl:'বর্তমান উচ্চতা',curTime:'বর্তমান সময়'},
+id:{tag:'DATA MATAHARI MELALUI HTTP',ft:'KUERI',lat:'Lintang',lon:'Bujur',tz:'Zona waktu pengamat',ts:'Cap waktu (UTC)',btn:'Dapatkan data matahari',res:'DATA MATAHARI',
+  sr:'Terbit',ss:'Terbenam',sn:'Tengah hari surya',dl:'Lama siang',
+  cb:'Awal senja sipil',ce:'Akhir senja sipil',nb:'Awal senja nautika',ne:'Akhir senja nautika',
+  ab:'Awal senja astronomi',ae:'Akhir senja astronomi',
+  sraz:'Azimut terbit',ssaz:'Azimut terbenam',nel:'Elevasi tengah hari',naz:'Azimut tengah hari',
+  pd:'☀ Hari kutub — matahari tidak terbenam.',pn:'🌑 Malam kutub — matahari tidak terbit.',
+  na:'N/A',raw:'JSON mentah',tw:'SENJA',ang:'SUDUT MATAHARI',curAz:'Azimut saat ini',curEl:'Elevasi saat ini',curTime:'Waktu saat ini'},
+ur:{tag:'HTTP کے ذریعے شمسی ڈیٹا',ft:'سوال',lat:'عرض البلد',lon:'طول البلد',tz:'مبصر کا ٹائم زون',ts:'ٹائم اسٹیمپ (UTC)',btn:'شمسی ڈیٹا حاصل کریں',res:'شمسی ڈیٹا',
+  sr:'طلوع آفتاب',ss:'غروب آفتاب',sn:'شمسی نصف النہار',dl:'دن کی لمبائی',
+  cb:'شہری شفق آغاز',ce:'شہری شفق اختتام',nb:'بحری شفق آغاز',ne:'بحری شفق اختتام',
+  ab:'فلکیاتی شفق آغاز',ae:'فلکیاتی شفق اختتام',
+  sraz:'طلوع سمت',ssaz:'غروب سمت',nel:'نصف النہار بلندی',naz:'نصف النہار سمت',
+  pd:'☀ قطبی دن — سورج غروب نہیں ہوتا۔',pn:'🌑 قطبی رات — سورج طلوع نہیں ہوتا۔',
+  na:'نہیں',raw:'JSON',tw:'شفق',ang:'شمسی زوایا',curAz:'موجودہ سمت',curEl:'موجودہ بلندی',curTime:'موجودہ وقت'},
+vi:{tag:'DỮ LIỆU MẶT TRỜI QUA HTTP',ft:'TRUY VẤN',lat:'Vĩ độ',lon:'Kinh độ',tz:'Múi giờ của người quan sát',ts:'Dấu thời gian (UTC)',btn:'Lấy dữ liệu mặt trời',res:'DỮ LIỆU MẶT TRỜI',
+  sr:'Bình minh',ss:'Hoàng hôn',sn:'Trưa mặt trời',dl:'Độ dài ban ngày',
+  cb:'Bắt đầu HH dân sự',ce:'Kết thúc HH dân sự',nb:'Bắt đầu HH hàng hải',ne:'Kết thúc HH hàng hải',
+  ab:'Bắt đầu HH thiên văn',ae:'Kết thúc HH thiên văn',
+  sraz:'Góc phương vị bình minh',ssaz:'Góc phương vị hoàng hôn',nel:'Độ cao lúc trưa',naz:'Góc phương vị lúc trưa',
+  pd:'☀ Ngày cực — mặt trời không lặn.',pn:'🌑 Đêm cực — mặt trời không mọc.',
+  na:'Không áp dụng',raw:'JSON thô',tw:'HOÀNG HÔN',ang:'GÓC MẶT TRỜI',curAz:'Góc phương vị hiện tại',curEl:'Độ cao hiện tại',curTime:'Thời gian hiện tại'}
+};
+const RTL=new Set(['ar','ur']);
+let lang='en',T=TR.en,lastD=null; // initial values; overridden by autoDetectLang() below
+
+function applyLang(l){
+  lang=l;T=TR[l]||TR.en;
+  const rtl=RTL.has(l);
+  document.documentElement.lang=l;
+  document.documentElement.dir=rtl?'rtl':'ltr';
+  set('tagline',T.tag);set('ftitle',T.ft);
+  set('lbl-lat',T.lat);set('lbl-lon',T.lon);set('lbl-tz',T.tz);set('lbl-ts',T.ts);
+  set('btn-lbl',T.btn);
+  if(lastD)renderResult(lastD);
+}
+function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+
+// ── THEME ─────────────────────────────────────────────────────────────────
+function toggleTheme(){
+  const r=document.documentElement,n=r.dataset.theme==='dark'?'light':'dark';
+  r.dataset.theme=n;
+  document.getElementById('tbtn').textContent=n==='dark'?'◑':'◐';
+  try{localStorage.setItem('h2s_t',n);}catch(e){}
+}
+try{const s=localStorage.getItem('h2s_t');if(s){document.documentElement.dataset.theme=s;document.getElementById('tbtn').textContent=s==='dark'?'◑':'◐';}}catch(e){}
+
+// ── WIRING ────────────────────────────────────────────────────────────────
+document.getElementById('tbtn').addEventListener('click',toggleTheme);
+document.getElementById('lsel').addEventListener('change',e=>applyLang(e.target.value));
+document.getElementById('sbtn').addEventListener('click',doQuery);
+document.getElementById('btn-now').addEventListener('click',()=>{
+  document.getElementById('finp-ts').value=Math.floor(Date.now()/1000);
+});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&['INPUT','SELECT'].includes(e.target.tagName))doQuery();});
+
+// ── QUERY ─────────────────────────────────────────────────────────────────
+async function doQuery(){
+  const latStr=document.getElementById('finp-lat').value.trim();
+  const lonStr=document.getElementById('finp-lon').value.trim();
+  const tz=document.getElementById('finp-tz').value;
+  const tsStr=document.getElementById('finp-ts').value.trim();
+  if(!latStr||!lonStr){showErr(T.lat+' / '+T.lon+' required');return;}
+  const ra=document.getElementById('rarea');
+  ra.innerHTML=`<div class="panel" style="margin-top:14px"><div class="loading-row"><span class="spinner"></span> <span>…</span></div></div>`;
+  document.getElementById('sbtn').disabled=true;
+  // Build JSON body — only include optional fields when provided
+  const body={latitude:parseFloat(latStr),longitude:parseFloat(lonStr)};
+  if(tz&&tz!=='UTC')body.timezone=tz;
+  if(tz==='UTC')body.timezone='UTC';
+  if(tsStr)body.timestamp=parseInt(tsStr,10);
+  try{
+    const resp=await fetch('/api/v1/sun',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const data=await resp.json();
+    if(!resp.ok)showErr(data.error||`HTTP ${resp.status}`);
+    else{lastD=data;renderResult(data);}
+  }catch(err){showErr(String(err));}
+  finally{document.getElementById('sbtn').disabled=false;}
+}
+function showErr(m){
+  document.getElementById('rarea').innerHTML=
+    `<div class="panel" style="margin-top:14px"><div class="error-panel"><span>⚠</span><span>${esc(m)}</span></div></div>`;
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────
+function renderResult(d){
+  const ra=document.getElementById('rarea');
+  const polar=d.polar_day?`<div class="polar-banner">${T.pd}</div>`:d.polar_night?`<div class="polar-banner">${T.pn}</div>`:'';
+  const v=(x,u='')=>x?`<div class="dcv">${esc(x)}${u?`<small style="font-size:.62em;opacity:.65"> ${u}</small>`:''}</div>`:`<div class="dcv na">${T.na}</div>`;
+  const vn=(n,u='')=>`<div class="dcv">${n}<small style="font-size:.62em;opacity:.65"> ${u}</small></div>`;
+  const c=(lbl,val)=>`<div class="data-card"><div class="dcl">${esc(lbl)}</div>${val}</div>`;
+
+  const mainCards=
+    c(T.sr,v(d.sunrise))+c(T.ss,v(d.sunset))+
+    c(T.sn,v(d.solar_noon))+c(T.dl,v(d.day_length));
+
+  const twCards=
+    c(T.cb,v(d.civil_twilight_begin))+c(T.ce,v(d.civil_twilight_end))+
+    c(T.nb,v(d.nautical_twilight_begin))+c(T.ne,v(d.nautical_twilight_end))+
+    c(T.ab,v(d.astronomical_twilight_begin))+c(T.ae,v(d.astronomical_twilight_end));
+
+  const angCards=
+    c(T.sraz,vn(d.sunrise_azimuth_deg,'°'))+
+    c(T.ssaz,vn(d.sunset_azimuth_deg,'°'))+
+    c(T.nel,vn(d.noon_elevation_deg,'°'))+
+    c(T.naz,`<div class="dcv">${d.noon_azimuth_deg===0?'0° (N)':'180° (S)'}</div>`);
+
+  // Current instantaneous position at the queried timestamp
+  const elColor=d.current_elevation_deg>=0?'var(--accent)':'var(--text-dim)';
+  const elArrow=d.current_elevation_deg>=0?'▲':'▼';
+  const curCards=
+    c(T.curTime,`<div class="dcv" style="font-size:.88rem">${esc(d.current_time_local)}</div>`)+
+    c(T.curAz,`<div class="dcv">${d.current_azimuth_deg}<small style="font-size:.62em;opacity:.65"> °</small></div>`)+
+    c(T.curEl,`<div class="dcv" style="color:${elColor}">${elArrow} ${d.current_elevation_deg}<small style="font-size:.62em;opacity:.65"> °</small></div>`);
+
+  const json=syntaxHL(JSON.stringify(d,null,2));
+
+  ra.innerHTML=`
+<div class="panel" style="margin-top:14px">
+  <div class="result-header">
+    <div class="panel-title" style="margin:0">${T.res}</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span class="result-meta">${esc(d.date)} · ${esc(d.timezone)}</span>
+      <span class="status-badge status-ok">✓ OK</span>
+    </div>
+  </div>
+  ${polar}
+  <div class="arc-wrap">${buildArc(d)}</div>
+  <div class="data-grid">${mainCards}</div>
+  <div class="tl-wrap">${buildTL(d)}</div>
+  <div class="sect-title">${T.tw}</div>
+  <div class="data-grid">${twCards}</div>
+  <div class="sect-title">${T.ang}</div>
+  <div class="data-grid">${angCards}</div>
+  <div class="sect-title" style="color:var(--accent);margin-top:10px">▶ ${T.curTime.toUpperCase()}</div>
+  <div class="data-grid">${curCards}</div>
+  <div style="margin-top:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="panel-title" style="margin:0">JSON</div>
+      <button class="raw-toggle" id="rtgl">${T.raw}</button>
+    </div>
+    <div class="raw-block" id="rblk" hidden>${json}</div>
+  </div>
+</div>`;
+  document.getElementById('rtgl').addEventListener('click',()=>{
+    const rb=document.getElementById('rblk');rb.hidden=!rb.hidden;
+  });
+}
+
+// ── SUN ARC SVG ───────────────────────────────────────────────────────────
+// Maps local time fraction [0,1] → (x,y) on the ellipse arc.
+// Fraction 0 = 00:00 (leftmost), 1 = 24:00 (rightmost), top = noon.
+function buildArc(d){
+  const W=680,H=120,cx=W/2,cy=H+10,rx=W*.44,ry=H*.9;
+  const frac=t=>{if(!t)return null;const p=t.split(':').map(Number);return(p[0]*3600+p[1]*60+(p[2]||0))/86400;};
+  const xy=f=>{if(f===null)return null;const a=Math.PI*(1-f);return{x:cx+rx*Math.cos(a),y:cy-ry*Math.sin(a)};};
+
+  const riseF=frac(d.sunrise), setF=frac(d.sunset), noonF=frac(d.solar_noon);
+  const curF=frac(d.current_time_local);
+  // Inverted: the local day crosses midnight (rise later in clock-time than set)
+  const inverted=riseF!==null&&setF!==null&&riseF>setF;
+
+  const riseP=xy(riseF), setP=xy(setF), noonP=xy(noonF), curP=xy(curF);
+
+  // ── Background full arc (dashed) ──
+  const arcBg=`<path d="M ${cx-rx},${cy} A ${rx},${ry} 0 0,1 ${cx+rx},${cy}" fill="none" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,4"/>`;
+  const hLine=`<line x1="${cx-rx}" y1="${cy}" x2="${cx+rx}" y2="${cy}" stroke="var(--border-hi)" stroke-width="1"/>`;
+
+  // ── Highlighted day arc ──
+  // arcSeg(f1,f2): draw arc from fraction f1 to f2 (always left-to-right on ellipse)
+  const arcSeg=(f1,f2)=>{
+    if(f1===null||f2===null||f2<=f1)return'';
+    const p1=xy(f1),p2=xy(f2);
+    return`<path d="M ${p1.x},${p1.y} A ${rx},${ry} 0 0,1 ${p2.x},${p2.y}" fill="none" stroke="var(--accent)" stroke-width="2.5" opacity=".55"/>`;
+  };
+  let dayArc='';
+  if(d.polar_day){
+    dayArc=arcSeg(0,1);
+  } else if(!d.polar_night&&riseF!==null&&setF!==null){
+    if(!inverted){
+      // Normal: single arc from rise to set
+      dayArc=arcSeg(riseF,setF);
+    } else {
+      // Inverted: two arcs — 00:00→set and rise→24:00
+      dayArc=arcSeg(0,setF)+arcSeg(riseF,1);
+    }
+  }
+
+  // ── Rise / Set markers ──
+  const mk=(p,label,col)=>!p?'':
+    `<line x1="${p.x}" y1="${p.y}" x2="${p.x}" y2="${cy}" stroke="${col}" stroke-width="1" stroke-dasharray="3,3" opacity=".4"/>
+     <circle cx="${p.x}" cy="${p.y}" r="4" fill="${col}" opacity=".9"/>
+     <text x="${p.x}" y="${cy+14}" text-anchor="middle" fill="${col}" font-size="9" font-family="monospace" opacity=".85">${esc(label||'—')}</text>`;
+
+  // ── Noon glow dot ──
+  const sunDot=noonP?`<defs><radialGradient id="sg${Math.random().toString(36).slice(2)}" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffcc00" stop-opacity=".55"/><stop offset="100%" stop-color="#ffcc00" stop-opacity="0"/></radialGradient></defs>
+    <circle cx="${noonP.x}" cy="${noonP.y}" r="26" fill="#ffcc0022"/>
+    <circle cx="${noonP.x}" cy="${noonP.y}" r="8" fill="#ffcc00" opacity=".95"/>
+    <circle cx="${noonP.x}" cy="${noonP.y}" r="5" fill="#fff" opacity=".65"/>`:'';
+
+  // ── Current position marker ──
+  let curMarker='';
+  if(curP){
+    const aboveHorizon=d.current_elevation_deg>=0;
+    const curCol=aboveHorizon?'var(--accent)':'var(--text-dim)';
+    const curY=aboveHorizon?curP.y:cy+2; // below-horizon: pin to baseline
+    curMarker=`
+      <line x1="${curP.x}" y1="${cy}" x2="${curP.x}" y2="${curY}" stroke="${curCol}" stroke-width="1.5" opacity=".7"/>
+      <circle cx="${curP.x}" cy="${curY}" r="6" fill="none" stroke="${curCol}" stroke-width="2" opacity=".9"/>
+      <circle cx="${curP.x}" cy="${curY}" r="2.5" fill="${curCol}" opacity=".9"/>
+      <text x="${curP.x}" y="${cy+14}" text-anchor="middle" fill="${curCol}" font-size="9" font-family="monospace" opacity=".9">${esc(d.current_time_local)}</text>`;
+  }
+
+  // ── Hour ticks ──
+  const ticks=[0,6,12,18,24].map(h=>{const p=xy(h/24);return`<text x="${p.x}" y="${cy+26}" text-anchor="middle" fill="var(--text-dim)" font-size="8" font-family="monospace">${String(h).padStart(2,'0')}h</text>`;}).join('');
+
+  // ── Polar labels ──
+  const polar=d.polar_day?`<text x="${cx}" y="${H*.5}" text-anchor="middle" fill="var(--warn)" font-size="11" font-family="monospace">☀ POLAR DAY</text>`:
+              d.polar_night?`<text x="${cx}" y="${H*.5}" text-anchor="middle" fill="var(--text-dim)" font-size="11" font-family="monospace">🌑 POLAR NIGHT</text>`:'';
+
+  return`<svg viewBox="0 0 ${W} ${cy+32}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
+    ${arcBg}${hLine}${dayArc}
+    ${mk(riseP,d.sunrise,'#f5a623')}
+    ${mk(setP,d.sunset,'#e07c0a')}
+    ${sunDot}${curMarker}${ticks}${polar}
+  </svg>`;
+}
+
+// ── TIMELINE BAR ──────────────────────────────────────────────────────────
+function buildTL(d){
+  const f=t=>{if(!t)return null;const p=t.split(':').map(Number);return(p[0]*3600+p[1]*60+(p[2]||0))/86400;};
+  const pct=v=>v===null?null:(v*100).toFixed(3)+'%';
+  const w=(a,b)=>a===null||b===null||b<=a?'0%':((b-a)*100).toFixed(3)+'%';
+  const seg=(cls,l,r)=>l===null||r===null||r<=l?'':
+    `<div class="tls ${cls}" style="left:${pct(l)};width:${w(l,r)}"></div>`;
+
+  // All fractions in local-clock time
+  const aB=f(d.astronomical_twilight_begin), nB=f(d.nautical_twilight_begin),
+        cB=f(d.civil_twilight_begin),        ri=f(d.sunrise),
+        se=f(d.sunset),
+        cE=f(d.civil_twilight_end),          nE=f(d.nautical_twilight_end),
+        aE=f(d.astronomical_twilight_end);
+
+  // Current time marker
+  const curF=f(d.current_time_local);
+  const curMarker=curF!==null
+    ? `<div style="position:absolute;top:0;left:${pct(curF)};height:100%;width:2px;background:var(--accent);opacity:.85;z-index:2"></div>`
+    : '';
+
+  let segs='';
+  if(d.polar_day){
+    segs=seg('tl-day',0,1);
+  } else if(d.polar_night){
+    segs=seg('tl-night',0,1);
+  } else {
+    const inverted=ri!==null&&se!==null&&ri>se;
+    if(!inverted){
+      // ── Normal case: night · astro · naut · civil · DAY · civil · naut · astro · night ──
+      segs+=seg('tl-night',0,aB);
+      segs+=seg('tl-astro',aB,nB);
+      segs+=seg('tl-naut',nB,cB);
+      segs+=seg('tl-civil',cB,ri);
+      segs+=seg('tl-day',ri,se);
+      segs+=seg('tl-civil',se,cE);
+      segs+=seg('tl-naut',cE,nE);
+      segs+=seg('tl-astro',nE,aE);
+      segs+=seg('tl-night',aE,1);
+    } else {
+      // ── Inverted case: day straddles midnight ──
+      // Local order: [0→se] DAY · civil · naut · astro · NIGHT · astro · naut · civil · [ri→1] DAY
+      segs+=seg('tl-day',0,se);
+      segs+=seg('tl-civil',se,cE);
+      segs+=seg('tl-naut',cE,nE);
+      segs+=seg('tl-astro',nE,aE);
+      segs+=seg('tl-night',aE,aB);
+      segs+=seg('tl-astro',aB,nB);
+      segs+=seg('tl-naut',nB,cB);
+      segs+=seg('tl-civil',cB,ri);
+      segs+=seg('tl-day',ri,1);
+    }
+  }
+
+  const ticks=[0,3,6,9,12,15,18,21,24].map(h=>`<span class="tl-tick">${String(h).padStart(2,'0')}h</span>`).join('');
+  return`<div class="tl-lbl">24 h</div><div class="tl-bar">${segs}${curMarker}</div><div class="tl-ticks">${ticks}</div>`;
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function syntaxHL(json){
+  // Single-pass tokenizer — never re-enters string content, so colons inside
+  // time values like "18:44:47" are never mistaken for JSON structure.
+  let out='',i=0,n=json.length;
+  while(i<n){
+    const ch=json[i];
+    if(ch==='"'){
+      // Read the complete JSON string, respecting backslash escapes.
+      let j=i+1;
+      while(j<n){
+        if(json[j]==='\\'){j+=2;continue;}
+        if(json[j]==='"'){j++;break;}
+        j++;
+      }
+      const str=json.slice(i,j);
+      // Peek past whitespace: if next non-space char is ':', this is a key.
+      let k=j;
+      while(k<n&&(json[k]===' '||json[k]==='\t'))k++;
+      if(json[k]===':'){
+        out+=`<span class="json-key">${str}</span>`;
+      } else {
+        out+=`<span class="json-str">${str}</span>`;
+      }
+      i=j;
+    } else if(ch==='-'||(ch>='0'&&ch<='9')){
+      let j=i;
+      while(j<n&&'0123456789.eE+-'.includes(json[j]))j++;
+      out+=`<span class="json-num">${json.slice(i,j)}</span>`;
+      i=j;
+    } else if(json.startsWith('true',i)){
+      out+='<span class="json-bool">true</span>';i+=4;
+    } else if(json.startsWith('false',i)){
+      out+='<span class="json-bool">false</span>';i+=5;
+    } else if(json.startsWith('null',i)){
+      out+='<span class="json-null">null</span>';i+=4;
+    } else {
+      out+=ch;i++;
+    }
+  }
+  return out;
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ── AUTO-DETECT BROWSER LANGUAGE ─────────────────────────────────────────
+(function autoDetectLang(){
+  const supported=Object.keys(TR);
+  // navigator.languages is an ordered list of BCP-47 tags the user prefers.
+  const prefs=(navigator.languages&&navigator.languages.length?
+    Array.from(navigator.languages):[navigator.language||'en']);
+  let detected='en';
+  for(const tag of prefs){
+    // Try exact match, then just the primary subtag (e.g. "fr-FR" → "fr").
+    const base=tag.split('-')[0].toLowerCase();
+    if(supported.includes(base)){detected=base;break;}
+  }
+  // Only override if the auto-detected language differs from the default.
+  if(detected!=='en'){
+    document.getElementById('lsel').value=detected;
+    applyLang(detected);
+  }
+})();
+</script>
+</body>
+</html>
