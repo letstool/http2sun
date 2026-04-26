@@ -216,6 +216,35 @@ footer a:hover{color:var(--accent)}
         </div>
       </div>
     </div>
+    <!-- Advanced physical parameters (collapsible) -->
+    <details id="adv-details" style="margin-top:10px">
+      <summary style="cursor:pointer;font-family:var(--mono);font-size:.68rem;font-weight:600;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;list-style:none;display:flex;align-items:center;gap:8px;padding:6px 2px;user-select:none">
+        <span style="display:inline-block;transition:transform .2s" id="adv-arrow">▶</span>
+        <span id="lbl-adv">Physical parameters</span>
+        <span style="font-size:.60rem;opacity:.5;font-weight:400;margin-left:4px">(elevation · pressure · temperature · ΔT)</span>
+      </summary>
+      <div class="form-grid" style="margin-top:10px">
+        <div class="field">
+          <label for="finp-el"><span id="lbl-el">Elevation (m)</span></label>
+          <input type="number" id="finp-el" step="any" min="0" max="9000" placeholder="0" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label for="finp-pres"><span id="lbl-pres">Pressure (hPa)</span></label>
+          <input type="number" id="finp-pres" step="any" min="1" max="1100" placeholder="1013.25" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label for="finp-temp"><span id="lbl-temp">Temperature (°C)</span></label>
+          <input type="number" id="finp-temp" step="any" min="-90" max="60" placeholder="12" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label for="finp-dt"><span id="lbl-dt">ΔT (s)</span></label>
+          <input type="number" id="finp-dt" step="any" min="-100" max="300" placeholder="auto" autocomplete="off"/>
+        </div>
+      </div>
+      <p style="font-family:var(--mono);font-size:.60rem;color:var(--text-dim);margin-top:8px;line-height:1.5">
+        NREL SPA params. Leave blank for defaults (0 m · 1013.25 hPa · 12 °C · ΔT auto-estimated via Espenak &amp; Meeus 2006).
+      </p>
+    </details>
     <div class="submit-row">
       <button class="btn-submit" id="sbtn">☀ <span id="btn-lbl">Get Solar Data</span></button>
     </div>
@@ -226,7 +255,8 @@ footer a:hover{color:var(--accent)}
 
 <footer>
   <a href="/openapi.json">OpenAPI 3.1</a> ·
-  NOAA Solar Algorithm · J. Meeus "Astronomical Algorithms"
+  <a href="https://github.com/maltegrosse/go-spa" target="_blank" rel="noopener">go-spa</a> ·
+  <span id="footer-algo">NREL Solar Position Algorithm · Reda &amp; Andreas (2004) · ±0.0003°</span>
 </footer>
 </div>
 
@@ -240,105 +270,105 @@ en:{tag:'SOLAR DATA OVER HTTP',ft:'QUERY',lat:'Latitude',lon:'Longitude',tz:'Obs
   sraz:'Sunrise Azimuth',ssaz:'Sunset Azimuth',nel:'Noon Elevation',naz:'Noon Azimuth',
   pd:'☀ Polar Day (midnight sun) — the sun does not set on this date.',
   pn:'🌑 Polar Night — the sun does not rise on this date.',
-  na:'N/A',raw:'Raw JSON',tw:'TWILIGHTS',ang:'SUN ANGLES',curAz:'Current Azimuth',curEl:'Current Elevation',curTime:'Current Time'},
+  na:'N/A',raw:'Raw JSON',tw:'TWILIGHTS',ang:'SUN ANGLES',curAz:'Current Azimuth',curEl:'Current Elevation',curTime:'Current Time',lbEl:'Elevation (m)',lbPres:'Pressure (hPa)',lbTemp:'Temperature (°C)',lbDt:'\u0394T (s)',adv:'Physical parameters',obs:'OBSERVER PARAMS',obsEl:'Elevation used',obsPres:'Pressure used',obsTemp:'Temperature used',obsDt:'\u0394T used'},
 fr:{tag:'DONNÉES SOLAIRES VIA HTTP',ft:'REQUÊTE',lat:'Latitude',lon:'Longitude',tz:'Fuseau horaire de l\'observateur',ts:'Timestamp (UTC)',btn:'Obtenir les données solaires',res:'DONNÉES SOLAIRES',
   sr:'Lever du soleil',ss:'Coucher du soleil',sn:'Midi solaire',dl:'Durée du jour',
   cb:'Début crépuscule civil',ce:'Fin crépuscule civil',nb:'Début crép. nautique',ne:'Fin crép. nautique',
   ab:'Début crép. astronomique',ae:'Fin crép. astronomique',
   sraz:'Azimut lever',ssaz:'Azimut coucher',nel:'Élévation à midi',naz:'Azimut à midi',
   pd:'☀ Jour polaire — le soleil ne se couche pas ce jour-là.',pn:'🌑 Nuit polaire — le soleil ne se lève pas ce jour-là.',
-  na:'N/D',raw:'JSON brut',tw:'CRÉPUSCULES',ang:'ANGLES SOLAIRES',curAz:'Azimut actuel',curEl:'Élévation actuelle',curTime:'Heure actuelle'},
+  na:'N/D',raw:'JSON brut',tw:'CRÉPUSCULES',ang:'ANGLES SOLAIRES',curAz:'Azimut actuel',curEl:'Élévation actuelle',curTime:'Heure actuelle',lbEl:'Altitude (m)',lbPres:'Pression (hPa)',lbTemp:'Temp\u00e9rature (\u00b0C)',lbDt:'\u0394T (s)',adv:'Param\u00e8tres physiques',obs:'PARAM\u00c8TRES OBSERVATEUR',obsEl:'Altitude utilis\u00e9e',obsPres:'Pression utilis\u00e9e',obsTemp:'Temp\u00e9rature utilis\u00e9e',obsDt:'\u0394T utilis\u00e9'},
 de:{tag:'SOLARDATEN PER HTTP',ft:'ANFRAGE',lat:'Breitengrad',lon:'Längengrad',tz:'Zeitzone des Beobachters',ts:'Zeitstempel (UTC)',btn:'Solardaten abrufen',res:'SOLARDATEN',
   sr:'Sonnenaufgang',ss:'Sonnenuntergang',sn:'Sonnenmittag',dl:'Tageslänge',
   cb:'Beginn bürgerl. Dämmerung',ce:'Ende bürgerl. Dämmerung',nb:'Beginn naut. Dämmerung',ne:'Ende naut. Dämmerung',
   ab:'Beginn astron. Dämmerung',ae:'Ende astron. Dämmerung',
   sraz:'Azimut Aufgang',ssaz:'Azimut Untergang',nel:'Sonnenhöhe Mittag',naz:'Azimut Mittag',
   pd:'☀ Polartag — die Sonne geht nicht unter.',pn:'🌑 Polarnacht — die Sonne geht nicht auf.',
-  na:'N/V',raw:'JSON anzeigen',tw:'DÄMMERUNG',ang:'SONNENWINKEL',curAz:'Aktueller Azimut',curEl:'Aktuelle Höhe',curTime:'Aktuelle Zeit'},
+  na:'N/V',raw:'JSON anzeigen',tw:'DÄMMERUNG',ang:'SONNENWINKEL',curAz:'Aktueller Azimut',curEl:'Aktuelle Höhe',curTime:'Aktuelle Zeit',lbEl:'H\u00f6he (m)',lbPres:'Druck (hPa)',lbTemp:'Temperatur (\u00b0C)',lbDt:'\u0394T (s)',adv:'Physikalische Parameter',obs:'BEOBACHTER-PARAMETER',obsEl:'Verwendete H\u00f6he',obsPres:'Verwendeter Druck',obsTemp:'Verwendete Temperatur',obsDt:'Verwendetes \u0394T'},
 es:{tag:'DATOS SOLARES POR HTTP',ft:'CONSULTA',lat:'Latitud',lon:'Longitud',tz:'Zona horaria del observador',ts:'Marca de tiempo (UTC)',btn:'Obtener datos solares',res:'DATOS SOLARES',
   sr:'Amanecer',ss:'Atardecer',sn:'Mediodía solar',dl:'Duración del día',
   cb:'Inicio crep. civil',ce:'Fin crep. civil',nb:'Inicio crep. náutico',ne:'Fin crep. náutico',
   ab:'Inicio crep. astronómico',ae:'Fin crep. astronómico',
   sraz:'Azimut amanecer',ssaz:'Azimut atardecer',nel:'Elevación al mediodía',naz:'Azimut al mediodía',
   pd:'☀ Día polar — el sol no se pone.',pn:'🌑 Noche polar — el sol no sale.',
-  na:'N/D',raw:'JSON sin procesar',tw:'CREPÚSCULO',ang:'ÁNGULOS SOLARES',curAz:'Azimut actual',curEl:'Elevación actual',curTime:'Hora actual'},
+  na:'N/D',raw:'JSON sin procesar',tw:'CREPÚSCULO',ang:'ÁNGULOS SOLARES',curAz:'Azimut actual',curEl:'Elevación actual',curTime:'Hora actual',lbEl:'Elevaci\u00f3n (m)',lbPres:'Presi\u00f3n (hPa)',lbTemp:'Temperatura (\u00b0C)',lbDt:'\u0394T (s)',adv:'Par\u00e1metros f\u00edsicos',obs:'PAR\u00c1METROS DEL OBSERVADOR',obsEl:'Elevaci\u00f3n usada',obsPres:'Presi\u00f3n usada',obsTemp:'Temperatura usada',obsDt:'\u0394T usado'},
 pt:{tag:'DADOS SOLARES VIA HTTP',ft:'CONSULTA',lat:'Latitude',lon:'Longitude',tz:'Fuso horário do observador',ts:'Data (UTC)',btn:'Obter dados solares',res:'DADOS SOLARES',
   sr:'Nascer do sol',ss:'Pôr do sol',sn:'Meio-dia solar',dl:'Duração do dia',
   cb:'Início crep. civil',ce:'Fim crep. civil',nb:'Início crep. náutico',ne:'Fim crep. náutico',
   ab:'Início crep. astronômico',ae:'Fim crep. astronômico',
   sraz:'Azimute nascer',ssaz:'Azimute pôr',nel:'Elevação ao meio-dia',naz:'Azimute ao meio-dia',
   pd:'☀ Dia polar — o sol não se põe.',pn:'🌑 Noite polar — o sol não nasce.',
-  na:'N/D',raw:'JSON bruto',tw:'CREPÚSCULO',ang:'ÂNGULOS SOLARES',curAz:'Azimute atual',curEl:'Elevação atual',curTime:'Hora atual'},
+  na:'N/D',raw:'JSON bruto',tw:'CREPÚSCULO',ang:'ÂNGULOS SOLARES',curAz:'Azimute atual',curEl:'Elevação atual',curTime:'Hora atual',lbEl:'Eleva\u00e7\u00e3o (m)',lbPres:'Press\u00e3o (hPa)',lbTemp:'Temperatura (\u00b0C)',lbDt:'\u0394T (s)',adv:'Par\u00e2metros f\u00edsicos',obs:'PAR\u00c2METROS DO OBSERVADOR',obsEl:'Eleva\u00e7\u00e3o usada',obsPres:'Press\u00e3o usada',obsTemp:'Temperatura usada',obsDt:'\u0394T usado'},
 zh:{tag:'太阳数据 HTTP 服务',ft:'查询',lat:'纬度',lon:'经度',tz:'观测者时区',ts:'时间戳 (UTC)',btn:'获取太阳数据',res:'太阳数据',
   sr:'日出',ss:'日落',sn:'正午',dl:'白昼时长',
   cb:'民用晨昏开始',ce:'民用晨昏结束',nb:'航海晨昏开始',ne:'航海晨昏结束',
   ab:'天文晨昏开始',ae:'天文晨昏结束',
   sraz:'日出方位角',ssaz:'日落方位角',nel:'正午高度角',naz:'正午方位角',
   pd:'☀ 极昼 — 本日太阳不落。',pn:'🌑 极夜 — 本日太阳不升。',
-  na:'不适用',raw:'原始 JSON',tw:'晨昏蒙影',ang:'太阳角度',curAz:'当前方位角',curEl:'当前高度角',curTime:'当前时间'},
+  na:'不适用',raw:'原始 JSON',tw:'晨昏蒙影',ang:'太阳角度',curAz:'当前方位角',curEl:'当前高度角',curTime:'当前时间',lbEl:'\u6d77\u62d4 (m)',lbPres:'\u6c14\u538b (hPa)',lbTemp:'\u6e29\u5ea6 (\u00b0C)',lbDt:'\u0394T (s)',adv:'\u7269\u7406\u53c2\u6570',obs:'\u89c2\u6d4b\u8005\u53c2\u6570',obsEl:'\u4f7f\u7528\u6d77\u62d4',obsPres:'\u4f7f\u7528\u6c14\u538b',obsTemp:'\u4f7f\u7528\u6e29\u5ea6',obsDt:'\u4f7f\u7528\u0394T'},
 ja:{tag:'HTTP 経由の太陽データ',ft:'クエリ',lat:'緯度',lon:'経度',tz:'観測者のタイムゾーン',ts:'タイムスタンプ (UTC)',btn:'太陽データを取得',res:'太陽データ',
   sr:'日の出',ss:'日の入り',sn:'南中時刻',dl:'昼の長さ',
   cb:'薄明開始（市民）',ce:'薄明終了（市民）',nb:'薄明開始（航海）',ne:'薄明終了（航海）',
   ab:'薄明開始（天文）',ae:'薄明終了（天文）',
   sraz:'日の出方位角',ssaz:'日の入り方位角',nel:'南中高度',naz:'南中方位角',
   pd:'☀ 白夜 — この日は太陽が沈みません。',pn:'🌑 極夜 — この日は太陽が昇りません。',
-  na:'該当なし',raw:'JSON 表示',tw:'薄明',ang:'太陽角度',curAz:'現在の方位角',curEl:'現在の高度',curTime:'現在時刻'},
+  na:'該当なし',raw:'JSON 表示',tw:'薄明',ang:'太陽角度',curAz:'現在の方位角',curEl:'現在の高度',curTime:'現在時刻',lbEl:'\u6a19\u9ad8 (m)',lbPres:'\u6c17\u5727 (hPa)',lbTemp:'\u6c17\u6e29 (\u00b0C)',lbDt:'\u0394T (s)',adv:'\u7269\u7406\u30d1\u30e9\u30e1\u30fc\u30bf',obs:'\u89b3\u6e2c\u8005\u30d1\u30e9\u30e1\u30fc\u30bf',obsEl:'\u4f7f\u7528\u6a19\u9ad8',obsPres:'\u4f7f\u7528\u6c17\u5727',obsTemp:'\u4f7f\u7528\u6c17\u6e29',obsDt:'\u4f7f\u7528\u0394T'},
 ko:{tag:'HTTP를 통한 태양 데이터',ft:'쿼리',lat:'위도',lon:'경도',tz:'관측자 시간대',ts:'타임스탬프 (UTC)',btn:'태양 데이터 가져오기',res:'태양 데이터',
   sr:'일출',ss:'일몰',sn:'태양 정오',dl:'낮 길이',
   cb:'시민 박명 시작',ce:'시민 박명 종료',nb:'항해 박명 시작',ne:'항해 박명 종료',
   ab:'천문 박명 시작',ae:'천문 박명 종료',
   sraz:'일출 방위각',ssaz:'일몰 방위각',nel:'정오 고도',naz:'정오 방위각',
   pd:'☀ 극낮 — 이 날 태양이 지지 않습니다.',pn:'🌑 극밤 — 이 날 태양이 뜨지 않습니다.',
-  na:'해당 없음',raw:'JSON 보기',tw:'박명',ang:'태양 각도',curAz:'현재 방위각',curEl:'현재 고도',curTime:'현재 시간'},
+  na:'해당 없음',raw:'JSON 보기',tw:'박명',ang:'태양 각도',curAz:'현재 방위각',curEl:'현재 고도',curTime:'현재 시간',lbEl:'\uace0\ub3c4 (m)',lbPres:'\uae30\uc555 (hPa)',lbTemp:'\uc628\ub3c4 (\u00b0C)',lbDt:'\u0394T (s)',adv:'\ubb3c\ub9ac \ud30c\ub77c\ubbf8\ud130',obs:'\uad00\uce21\uc790 \ud30c\ub77c\ubbf8\ud130',obsEl:'\uc0ac\uc6a9 \uace0\ub3c4',obsPres:'\uc0ac\uc6a9 \uae30\uc555',obsTemp:'\uc0ac\uc6a9 \uc628\ub3c4',obsDt:'\uc0ac\uc6a9 \u0394T'},
 ru:{tag:'ДАННЫЕ О СОЛНЦЕ ЧЕРЕЗ HTTP',ft:'ЗАПРОС',lat:'Широта',lon:'Долгота',tz:'Часовой пояс наблюдателя',ts:'Метка времени (UTC)',btn:'Получить данные о солнце',res:'ДАННЫЕ О СОЛНЦЕ',
   sr:'Восход',ss:'Закат',sn:'Полдень',dl:'Длина дня',
   cb:'Начало граж. сумерек',ce:'Конец граж. сумерек',nb:'Начало нав. сумерек',ne:'Конец нав. сумерек',
   ab:'Начало астр. сумерек',ae:'Конец астр. сумерек',
   sraz:'Азимут восхода',ssaz:'Азимут заката',nel:'Высота в полдень',naz:'Азимут в полдень',
   pd:'☀ Полярный день — солнце не заходит.',pn:'🌑 Полярная ночь — солнце не восходит.',
-  na:'Н/Д',raw:'JSON',tw:'СУМЕРКИ',ang:'УГЛЫ СОЛНЦА',curAz:'Текущий азимут',curEl:'Текущая высота',curTime:'Текущее время'},
+  na:'Н/Д',raw:'JSON',tw:'СУМЕРКИ',ang:'УГЛЫ СОЛНЦА',curAz:'Текущий азимут',curEl:'Текущая высота',curTime:'Текущее время',lbEl:'\u0412\u044b\u0441\u043e\u0442\u0430 (\u043c)',lbPres:'\u0414\u0430\u0432\u043b\u0435\u043d\u0438\u0435 (hPa)',lbTemp:'\u0422\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u0430 (\u00b0C)',lbDt:'\u0394T (\u0441)',adv:'\u0424\u0438\u0437\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u044b',obs:'\u041f\u0410\u0420\u0410\u041c\u0415\u0422\u0420\u042b \u041d\u0410\u0411\u041b\u042e\u0414\u0410\u0422\u0415\u041b\u042f',obsEl:'\u0418\u0441\u043f. \u0432\u044b\u0441\u043e\u0442\u0430',obsPres:'\u0418\u0441\u043f. \u0434\u0430\u0432\u043b\u0435\u043d\u0438\u0435',obsTemp:'\u0418\u0441\u043f. \u0442\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u0430',obsDt:'\u0418\u0441\u043f. \u0394T'},
 ar:{tag:'بيانات الشمس عبر HTTP',ft:'استعلام',lat:'خط العرض',lon:'خط الطول',tz:'المنطقة الزمنية للمراقب',ts:'الطابع الزمني (UTC)',btn:'الحصول على بيانات الشمس',res:'بيانات الشمس',
   sr:'شروق الشمس',ss:'غروب الشمس',sn:'الظهر الشمسي',dl:'مدة النهار',
   cb:'بداية الشفق المدني',ce:'نهاية الشفق المدني',nb:'بداية الشفق الملاحي',ne:'نهاية الشفق الملاحي',
   ab:'بداية الشفق الفلكي',ae:'نهاية الشفق الفلكي',
   sraz:'سمت الشروق',ssaz:'سمت الغروب',nel:'الارتفاع عند الظهر',naz:'السمت عند الظهر',
   pd:'☀ يوم قطبي — الشمس لا تغرب.',pn:'🌑 ليل قطبي — الشمس لا تشرق.',
-  na:'غير متاح',raw:'JSON',tw:'الشفق',ang:'زوايا الشمس',curAz:'السمت الحالي',curEl:'الارتفاع الحالي',curTime:'الوقت الحالي'},
+  na:'غير متاح',raw:'JSON',tw:'الشفق',ang:'زوايا الشمس',curAz:'السمت الحالي',curEl:'الارتفاع الحالي',curTime:'الوقت الحالي',lbEl:'\u0627\u0644\u0627\u0631\u062a\u0641\u0627\u0639 (\u0645)',lbPres:'\u0627\u0644\u0636\u063a\u0637 (hPa)',lbTemp:'\u0627\u0644\u062d\u0631\u0627\u0631\u0629 (\u00b0C)',lbDt:'\u0394T (\u062b)',adv:'\u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0627\u062a \u0627\u0644\u0641\u064a\u0632\u064a\u0627\u0626\u064a\u0629',obs:'\u0645\u0639\u0627\u0645\u0644\u0627\u062a \u0627\u0644\u0645\u0631\u0627\u0642\u0628',obsEl:'\u0627\u0644\u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645',obsPres:'\u0627\u0644\u0636\u063a\u0637 \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645',obsTemp:'\u0627\u0644\u062d\u0631\u0627\u0631\u0629 \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645\u0629',obsDt:'\u0394T \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645'},
 hi:{tag:'HTTP के माध्यम से सौर डेटा',ft:'क्वेरी',lat:'अक्षांश',lon:'देशांतर',tz:'प्रेक्षक का समय क्षेत्र',ts:'समय मुहर (UTC)',btn:'सौर डेटा प्राप्त करें',res:'सौर डेटा',
   sr:'सूर्योदय',ss:'सूर्यास्त',sn:'सौर मध्याह्न',dl:'दिन की लंबाई',
   cb:'नागरिक संध्या प्रारंभ',ce:'नागरिक संध्या समाप्त',nb:'नौवहन संध्या प्रारंभ',ne:'नौवहन संध्या समाप्त',
   ab:'खगोलीय संध्या प्रारंभ',ae:'खगोलीय संध्या समाप्त',
   sraz:'उदय दिगंश',ssaz:'अस्त दिगंश',nel:'मध्याह्न उन्नयन',naz:'मध्याह्न दिगंश',
   pd:'☀ ध्रुवीय दिन — सूर्य अस्त नहीं होता।',pn:'🌑 ध्रुवीय रात — सूर्य उदय नहीं होता।',
-  na:'N/A',raw:'JSON',tw:'संध्या',ang:'सौर कोण',curAz:'वर्तमान दिगंश',curEl:'वर्तमान उन्नयन',curTime:'वर्तमान समय'},
+  na:'N/A',raw:'JSON',tw:'संध्या',ang:'सौर कोण',curAz:'वर्तमान दिगंश',curEl:'वर्तमान उन्नयन',curTime:'वर्तमान समय',lbEl:'\u0909\u0901\u091a\u093e\u0908 (m)',lbPres:'\u0926\u092c\u093e\u0935 (hPa)',lbTemp:'\u0924\u093e\u092a\u092e\u093e\u0928 (\u00b0C)',lbDt:'\u0394T (s)',adv:'\u092d\u094c\u0924\u093f\u0915 \u092e\u093e\u092a\u0926\u0902\u0921',obs:'\u092a\u094d\u0930\u0947\u0915\u094d\u0937\u0915 \u092e\u093e\u092a\u0926\u0902\u0921',obsEl:'\u092a\u094d\u0930\u092f\u0941\u0915\u094d\u0924 \u0909\u0901\u091a\u093e\u0908',obsPres:'\u092a\u094d\u0930\u092f\u0941\u0915\u094d\u0924 \u0926\u092c\u093e\u0935',obsTemp:'\u092a\u094d\u0930\u092f\u0941\u0915\u094d\u0924 \u0924\u093e\u092a\u092e\u093e\u0928',obsDt:'\u092a\u094d\u0930\u092f\u0941\u0915\u094d\u0924 \u0394T'},
 bn:{tag:'HTTP-এ সৌর তথ্য',ft:'অনুসন্ধান',lat:'অক্ষাংশ',lon:'দ্রাঘিমাংশ',tz:'পর্যবেক্ষকের সময় অঞ্চল',ts:'টাইমস্ট্যাম্প (UTC)',btn:'সৌর তথ্য পান',res:'সৌর তথ্য',
   sr:'সূর্যোদয়',ss:'সূর্যাস্ত',sn:'সৌর মধ্যাহ্ন',dl:'দিনের দৈর্ঘ্য',
   cb:'নাগরিক গোধূলি শুরু',ce:'নাগরিক গোধূলি শেষ',nb:'নৌ-গোধূলি শুরু',ne:'নৌ-গোধূলি শেষ',
   ab:'জ্যোতির্বৈজ্ঞানিক গোধূলি শুরু',ae:'জ্যোতির্বৈজ্ঞানিক গোধূলি শেষ',
   sraz:'উদয় দিকবিন্দু',ssaz:'অস্ত দিকবিন্দু',nel:'মধ্যাহ্ন উচ্চতা',naz:'মধ্যাহ্ন দিকবিন্দু',
   pd:'☀ মেরু দিন — সূর্য অস্ত যায় না।',pn:'🌑 মেরু রাত — সূর্য উদয় হয় না।',
-  na:'প্রযোজ্য নয়',raw:'JSON',tw:'গোধূলি',ang:'সৌর কোণ',curAz:'বর্তমান দিকবিন্দু',curEl:'বর্তমান উচ্চতা',curTime:'বর্তমান সময়'},
+  na:'প্রযোজ্য নয়',raw:'JSON',tw:'গোধূলি',ang:'সৌর কোণ',curAz:'বর্তমান দিকবিন্দু',curEl:'বর্তমান উচ্চতা',curTime:'বর্তমান সময়',lbEl:'\u0989\u099a\u09cd\u099a\u09a4\u09be (m)',lbPres:'\u099a\u09be\u09aa (hPa)',lbTemp:'\u09a4\u09be\u09aa\u09ae\u09be\u09a4\u09cd\u09b0\u09be (\u00b0C)',lbDt:'\u0394T (s)',adv:'\u09ad\u09cc\u09a4 \u09aa\u09b0\u09be\u09ae\u09bf\u09a4\u09bf',obs:'\u09aa\u09b0\u09cd\u09af\u09ac\u09c7\u0995\u09cd\u09b7\u0995 \u09aa\u09b0\u09be\u09ae\u09bf\u09a4\u09bf',obsEl:'\u09ac\u09cd\u09af\u09ac\u09b9\u09c3\u09a4 \u0989\u099a\u09cd\u099a\u09a4\u09be',obsPres:'\u09ac\u09cd\u09af\u09ac\u09b9\u09c3\u09a4 \u099a\u09be\u09aa',obsTemp:'\u09ac\u09cd\u09af\u09ac\u09b9\u09c3\u09a4 \u09a4\u09be\u09aa\u09ae\u09be\u09a4\u09cd\u09b0\u09be',obsDt:'\u09ac\u09cd\u09af\u09ac\u09b9\u09c3\u09a4 \u0394T'},
 id:{tag:'DATA MATAHARI MELALUI HTTP',ft:'KUERI',lat:'Lintang',lon:'Bujur',tz:'Zona waktu pengamat',ts:'Cap waktu (UTC)',btn:'Dapatkan data matahari',res:'DATA MATAHARI',
   sr:'Terbit',ss:'Terbenam',sn:'Tengah hari surya',dl:'Lama siang',
   cb:'Awal senja sipil',ce:'Akhir senja sipil',nb:'Awal senja nautika',ne:'Akhir senja nautika',
   ab:'Awal senja astronomi',ae:'Akhir senja astronomi',
   sraz:'Azimut terbit',ssaz:'Azimut terbenam',nel:'Elevasi tengah hari',naz:'Azimut tengah hari',
   pd:'☀ Hari kutub — matahari tidak terbenam.',pn:'🌑 Malam kutub — matahari tidak terbit.',
-  na:'N/A',raw:'JSON mentah',tw:'SENJA',ang:'SUDUT MATAHARI',curAz:'Azimut saat ini',curEl:'Elevasi saat ini',curTime:'Waktu saat ini'},
+  na:'N/A',raw:'JSON mentah',tw:'SENJA',ang:'SUDUT MATAHARI',curAz:'Azimut saat ini',curEl:'Elevasi saat ini',curTime:'Waktu saat ini',lbEl:'Ketinggian (m)',lbPres:'Tekanan (hPa)',lbTemp:'Suhu (\u00b0C)',lbDt:'\u0394T (s)',adv:'Parameter fisik',obs:'PARAMETER PENGAMAT',obsEl:'Ketinggian digunakan',obsPres:'Tekanan digunakan',obsTemp:'Suhu digunakan',obsDt:'\u0394T digunakan'},
 ur:{tag:'HTTP کے ذریعے شمسی ڈیٹا',ft:'سوال',lat:'عرض البلد',lon:'طول البلد',tz:'مبصر کا ٹائم زون',ts:'ٹائم اسٹیمپ (UTC)',btn:'شمسی ڈیٹا حاصل کریں',res:'شمسی ڈیٹا',
   sr:'طلوع آفتاب',ss:'غروب آفتاب',sn:'شمسی نصف النہار',dl:'دن کی لمبائی',
   cb:'شہری شفق آغاز',ce:'شہری شفق اختتام',nb:'بحری شفق آغاز',ne:'بحری شفق اختتام',
   ab:'فلکیاتی شفق آغاز',ae:'فلکیاتی شفق اختتام',
   sraz:'طلوع سمت',ssaz:'غروب سمت',nel:'نصف النہار بلندی',naz:'نصف النہار سمت',
   pd:'☀ قطبی دن — سورج غروب نہیں ہوتا۔',pn:'🌑 قطبی رات — سورج طلوع نہیں ہوتا۔',
-  na:'نہیں',raw:'JSON',tw:'شفق',ang:'شمسی زوایا',curAz:'موجودہ سمت',curEl:'موجودہ بلندی',curTime:'موجودہ وقت'},
+  na:'نہیں',raw:'JSON',tw:'شفق',ang:'شمسی زوایا',curAz:'موجودہ سمت',curEl:'موجودہ بلندی',curTime:'موجودہ وقت',lbEl:'\u0628\u0644\u0646\u062f\u06cc (m)',lbPres:'\u062f\u0628\u0627\u0624 (hPa)',lbTemp:'\u062f\u0631\u062c\u06c1 \u062d\u0631\u0627\u0631\u062a (\u00b0C)',lbDt:'\u0394T (s)',adv:'\u0637\u0628\u06cc\u0639\u06cc \u067e\u06cc\u0631\u0627\u0645\u06cc\u0679\u0631',obs:'\u0645\u0628\u0635\u0631 \u067e\u06cc\u0631\u0627\u0645\u06cc\u0679\u0631',obsEl:'\u0627\u0633\u062a\u0639\u0645\u0627\u0644 \u0628\u0644\u0646\u062f\u06cc',obsPres:'\u0627\u0633\u062a\u0639\u0645\u0627\u0644 \u062f\u0628\u0627\u0624',obsTemp:'\u0627\u0633\u062a\u0639\u0645\u0627\u0644 \u062f\u0631\u062c\u06c1 \u062d\u0631\u0627\u0631\u062a',obsDt:'\u0627\u0633\u062a\u0639\u0645\u0627\u0644 \u0394T'},
 vi:{tag:'DỮ LIỆU MẶT TRỜI QUA HTTP',ft:'TRUY VẤN',lat:'Vĩ độ',lon:'Kinh độ',tz:'Múi giờ của người quan sát',ts:'Dấu thời gian (UTC)',btn:'Lấy dữ liệu mặt trời',res:'DỮ LIỆU MẶT TRỜI',
   sr:'Bình minh',ss:'Hoàng hôn',sn:'Trưa mặt trời',dl:'Độ dài ban ngày',
   cb:'Bắt đầu HH dân sự',ce:'Kết thúc HH dân sự',nb:'Bắt đầu HH hàng hải',ne:'Kết thúc HH hàng hải',
   ab:'Bắt đầu HH thiên văn',ae:'Kết thúc HH thiên văn',
   sraz:'Góc phương vị bình minh',ssaz:'Góc phương vị hoàng hôn',nel:'Độ cao lúc trưa',naz:'Góc phương vị lúc trưa',
   pd:'☀ Ngày cực — mặt trời không lặn.',pn:'🌑 Đêm cực — mặt trời không mọc.',
-  na:'Không áp dụng',raw:'JSON thô',tw:'HOÀNG HÔN',ang:'GÓC MẶT TRỜI',curAz:'Góc phương vị hiện tại',curEl:'Độ cao hiện tại',curTime:'Thời gian hiện tại'}
+  na:'Không áp dụng',raw:'JSON thô',tw:'HOÀNG HÔN',ang:'GÓC MẶT TRỜI',curAz:'Góc phương vị hiện tại',curEl:'Độ cao hiện tại',curTime:'Thời gian hiện tại',lbEl:'Cao \u0111\u1ed9 (m)',lbPres:'\u00c1p su\u1ea5t (hPa)',lbTemp:'Nhi\u1ec7t \u0111\u1ed9 (\u00b0C)',lbDt:'\u0394T (s)',adv:'Tham s\u1ed1 v\u1eadt l\u00fd',obs:'THAM S\u1ed0 QUAN S\u00c1T VI\u00caN',obsEl:'Cao \u0111\u1ed9 \u0111\u00e3 d\u00f9ng',obsPres:'\u00c1p su\u1ea5t \u0111\u00e3 d\u00f9ng',obsTemp:'Nhi\u1ec7t \u0111\u1ed9 \u0111\u00e3 d\u00f9ng',obsDt:'\u0394T \u0111\u00e3 d\u00f9ng'}
 };
 const RTL=new Set(['ar','ur']);
 let lang='en',T=TR.en,lastD=null; // initial values; overridden by autoDetectLang() below
@@ -350,6 +380,7 @@ function applyLang(l){
   document.documentElement.dir=rtl?'rtl':'ltr';
   set('tagline',T.tag);set('ftitle',T.ft);
   set('lbl-lat',T.lat);set('lbl-lon',T.lon);set('lbl-tz',T.tz);set('lbl-ts',T.ts);
+  set('lbl-el',T.lbEl);set('lbl-pres',T.lbPres);set('lbl-temp',T.lbTemp);set('lbl-dt',T.lbDt);set('lbl-adv',T.adv);
   set('btn-lbl',T.btn);
   if(lastD)renderResult(lastD);
 }
@@ -371,6 +402,9 @@ document.getElementById('sbtn').addEventListener('click',doQuery);
 document.getElementById('btn-now').addEventListener('click',()=>{
   document.getElementById('finp-ts').value=Math.floor(Date.now()/1000);
 });
+document.getElementById('adv-details').addEventListener('toggle',e=>{
+  document.getElementById('adv-arrow').style.transform=e.target.open?'rotate(90deg)':'';
+});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&['INPUT','SELECT'].includes(e.target.tagName))doQuery();});
 
 // ── QUERY ─────────────────────────────────────────────────────────────────
@@ -384,10 +418,18 @@ async function doQuery(){
   ra.innerHTML=`<div class="panel" style="margin-top:14px"><div class="loading-row"><span class="spinner"></span> <span>…</span></div></div>`;
   document.getElementById('sbtn').disabled=true;
   // Build JSON body — only include optional fields when provided
+  const elStr=document.getElementById('finp-el').value.trim();
+  const presStr=document.getElementById('finp-pres').value.trim();
+  const tempStr=document.getElementById('finp-temp').value.trim();
+  const dtStr=document.getElementById('finp-dt').value.trim();
   const body={latitude:parseFloat(latStr),longitude:parseFloat(lonStr)};
   if(tz&&tz!=='UTC')body.timezone=tz;
   if(tz==='UTC')body.timezone='UTC';
   if(tsStr)body.timestamp=parseInt(tsStr,10);
+  if(elStr)body.elevation=parseFloat(elStr);
+  if(presStr)body.pressure=parseFloat(presStr);
+  if(tempStr)body.temperature=parseFloat(tempStr);
+  if(dtStr)body.delta_t=parseFloat(dtStr);
   try{
     const resp=await fetch('/api/v1/sun',{
       method:'POST',
@@ -436,6 +478,14 @@ function renderResult(d){
     c(T.curAz,`<div class="dcv">${d.current_azimuth_deg}<small style="font-size:.62em;opacity:.65"> °</small></div>`)+
     c(T.curEl,`<div class="dcv" style="color:${elColor}">${elArrow} ${d.current_elevation_deg}<small style="font-size:.62em;opacity:.65"> °</small></div>`);
 
+  // Observer physical parameters used in NREL SPA
+  const dtColor=d.delta_t_s<70?'var(--ok)':'var(--text-mid)';
+  const obsCards=
+    c(T.obsEl,`<div class="dcv">${d.observer_elevation_m}<small style="font-size:.62em;opacity:.65"> m</small></div>`)+
+    c(T.obsPres,`<div class="dcv">${d.observer_pressure_hpa}<small style="font-size:.62em;opacity:.65"> hPa</small></div>`)+
+    c(T.obsTemp,`<div class="dcv">${d.observer_temperature_c}<small style="font-size:.62em;opacity:.65"> °C</small></div>`)+
+    c(T.obsDt,`<div class="dcv" style="color:${dtColor}">${d.delta_t_s}<small style="font-size:.62em;opacity:.65"> s</small></div>`);
+
   const json=syntaxHL(JSON.stringify(d,null,2));
 
   ra.innerHTML=`
@@ -445,6 +495,7 @@ function renderResult(d){
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span class="result-meta">${esc(d.date)} · ${esc(d.timezone)}</span>
       <span class="status-badge status-ok">✓ OK</span>
+      <span style="font-family:var(--mono);font-size:.65rem;color:var(--text-dim);letter-spacing:.05em">NREL SPA ±0.0003°</span>
     </div>
   </div>
   ${polar}
@@ -457,6 +508,13 @@ function renderResult(d){
   <div class="data-grid">${angCards}</div>
   <div class="sect-title" style="color:var(--accent);margin-top:10px">▶ ${T.curTime.toUpperCase()}</div>
   <div class="data-grid">${curCards}</div>
+  <details style="margin-top:12px">
+    <summary style="cursor:pointer;font-family:var(--mono);font-size:.62rem;font-weight:600;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;list-style:none;display:flex;align-items:center;gap:6px;padding:4px 0;user-select:none">
+      <span>▶</span> ${T.obs}
+      <span style="font-size:.58rem;font-weight:400;opacity:.5">· NREL SPA · ΔT ${d.delta_t_s}s</span>
+    </summary>
+    <div class="data-grid" style="margin-top:8px">${obsCards}</div>
+  </details>
   <div style="margin-top:14px">
     <div style="display:flex;align-items:center;justify-content:space-between">
       <div class="panel-title" style="margin:0">JSON</div>

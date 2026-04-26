@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 	_ "time/tzdata" // embed the full IANA timezone database in the binary
+
+	gospa "github.com/maltegrosse/go-spa"
 )
 
 //go:embed static/index.html
@@ -34,161 +36,160 @@ const (
 	deg2rad = math.Pi / 180.0
 	rad2deg = 180.0 / math.Pi
 
-	// Standard solar zenith angles (degrees)
-	zenithSunrise    = 90.833 // sunrise/sunset (refraction + solar disc radius)
-	zenithCivil      = 96.0
-	zenithNautical   = 102.0
-	zenithAstronomic = 108.0
+	// Standard zenith angles (degrees from zenith = depression below horizon + 90)
+	zenithSunrise    = 90.833 // geometric sunrise/sunset (refraction + solar disc)
+	zenithCivil      = 96.0  // sun 6° below horizon
+	zenithNautical   = 102.0 // sun 12° below horizon
+	zenithAstronomic = 108.0 // sun 18° below horizon
+
+	// Physical defaults (used when the caller omits the optional fields)
+	defaultElevation    = 0.0     // metres above sea level
+	defaultPressure     = 1013.25 // hPa (standard atmosphere at sea level)
+	defaultTemperature  = 12.0    // °C (ICAO standard atmosphere, low altitude)
+	defaultAtmosRefract = 0.5667  // degrees (standard refraction at horizon)
+	defaultDeltaUT1     = 0.0     // seconds (UT1 - UTC, usually |x| < 0.9 s)
 )
 
 // ---------------------------------------------------------------------------
-//  Solar Position Algorithm (NOAA / Jean Meeus, "Astronomical Algorithms")
-//  Accurate to ±1–2 minutes for dates within ±50 years of J2000.0.
+//  ΔT estimation — Espenak & Meeus (2006) polynomial fit
+//  Returns Terrestrial Time minus UT1 in seconds.
 // ---------------------------------------------------------------------------
 
-// julianDay converts a UTC time.Time to a Julian Day Number.
-func julianDay(t time.Time) float64 {
-	t = t.UTC()
-	y := float64(t.Year())
-	m := float64(t.Month())
-	d := float64(t.Day()) + float64(t.Hour())/24.0 + float64(t.Minute())/1440.0 + float64(t.Second())/86400.0
-	if m <= 2 {
-		y--
-		m += 12
-	}
-	A := math.Floor(y / 100)
-	B := 2 - A + math.Floor(A/4)
-	return math.Floor(365.25*(y+4716)) + math.Floor(30.6001*(m+1)) + d + B - 1524.5
-}
-
-// solarData computes the sun's declination (degrees) and equation of time (minutes)
-// for the given Julian Day Number.
-func solarData(jd float64) (decl, eqtime float64) {
-	T := (jd - 2451545.0) / 36525.0
-
-	// Geometric mean longitude (degrees)
-	L0 := math.Mod(280.46646+T*(36000.76983+T*0.0003032), 360)
-	if L0 < 0 {
-		L0 += 360
-	}
-
-	// Mean anomaly (degrees)
-	M := math.Mod(357.52911+T*(35999.05029-T*0.0001537), 360)
-	if M < 0 {
-		M += 360
-	}
-	Mr := M * deg2rad
-
-	// Eccentricity of Earth's orbit
-	e := 0.016708634 - T*(0.000042037+T*0.0000001267)
-
-	// Equation of center
-	C := math.Sin(Mr)*(1.914602-T*(0.004817+T*0.000014)) +
-		math.Sin(2*Mr)*(0.019993-T*0.000101) +
-		math.Sin(3*Mr)*0.000289
-
-	// True longitude → apparent longitude
-	omega := 125.04 - 1934.136*T
-	lambda := (L0 + C) - 0.00569 - 0.00478*math.Sin(omega*deg2rad)
-
-	// Mean obliquity of the ecliptic (degrees) → apparent obliquity (radians)
-	eps0 := 23.0 + (26.0+(21.448-T*(46.815+T*(0.00059-T*0.001813)))/60.0)/60.0
-	eps := (eps0 + 0.00256*math.Cos(omega*deg2rad)) * deg2rad
-
-	// Declination (degrees)
-	decl = math.Asin(math.Sin(eps)*math.Sin(lambda*deg2rad)) * rad2deg
-
-	// Equation of time (minutes)
-	y := math.Tan(eps / 2)
-	y *= y
-	l0r := L0 * deg2rad
-	eqtime = 4 * rad2deg * (y*math.Sin(2*l0r) -
-		2*e*math.Sin(Mr) +
-		4*e*y*math.Sin(Mr)*math.Cos(2*l0r) -
-		0.5*y*y*math.Sin(4*l0r) -
-		1.25*e*e*math.Sin(2*Mr))
-	return
-}
-
-// hourAngle computes the hour angle (degrees) at which the sun crosses a given
-// zenith angle for an observer at the given latitude.
-//
-//   - (ha, true,  false) → normal rise/set event.
-//   - (0,  false, false) → polar night for this zenith (sun never reaches it).
-//   - (180,false, true)  → midnight sun (sun never drops below this zenith).
-func hourAngle(lat, decl, zenith float64) (ha float64, ok bool, polarDay bool) {
-	cosHA := (math.Cos(zenith*deg2rad) - math.Sin(lat*deg2rad)*math.Sin(decl*deg2rad)) /
-		(math.Cos(lat*deg2rad) * math.Cos(decl*deg2rad))
+func estimateDeltaT(t time.Time) float64 {
+	y := float64(t.Year()) + (float64(t.YearDay())-0.5)/365.25
 	switch {
-	case cosHA > 1:
-		return 0, false, false
-	case cosHA < -1:
-		return 180, false, true
+	case y >= 2005 && y < 2050:
+		u := y - 2000
+		return 62.92 + 0.32217*u + 0.005589*u*u
+	case y >= 1986 && y < 2005:
+		u := y - 2000
+		return 63.86 + 0.3345*u - 0.060374*u*u + 0.0017275*math.Pow(u, 3) +
+			0.000651814*math.Pow(u, 4) + 0.00002373599*math.Pow(u, 5)
+	case y >= 1961 && y < 1986:
+		u := y - 1975
+		return 45.45 + 1.067*u - u*u/260 - math.Pow(u, 3)/718
+	case y >= 2050:
+		u := y - 1820
+		return -20 + 32*(u/100)*(u/100)
 	default:
-		return math.Acos(cosHA) * rad2deg, true, false
+		u := y - 1820
+		return -20 + 32*(u/100)*(u/100)
 	}
 }
 
-// minutesToTime converts minutes-from-midnight-UTC on the calendar date of
-// refUTC into an absolute UTC time.Time.
-func minutesToTime(refUTC time.Time, minutes float64) time.Time {
-	midnight := time.Date(refUTC.Year(), refUTC.Month(), refUTC.Day(), 0, 0, 0, 0, time.UTC)
-	sec := int64(math.Round(minutes * 60))
-	return midnight.Add(time.Duration(sec) * time.Second)
+// ---------------------------------------------------------------------------
+//  Hour angle helpers (used for twilight computation)
+//  go-spa blocks |atmosRefract| > 5°, so twilights (96°, 102°, 108°) cannot
+//  be computed via the library's built-in rise/set. We use the standard hour
+//  angle formula, fed with NREL-accurate declination and equation of time.
+// ---------------------------------------------------------------------------
+
+// cosHourAngle returns cos(H) where H is the hour angle at which the sun's
+// centre crosses the given zenith angle, for an observer at the given latitude
+// with the given geocentric declination.
+//   > 1  → polar night for this zenith  (sun never rises that high)
+//   < -1 → polar day  for this zenith  (sun never sets that low)
+func cosHourAngle(lat, decl, zenithDeg float64) float64 {
+	return (math.Cos(zenithDeg*deg2rad) -
+		math.Sin(lat*deg2rad)*math.Sin(decl*deg2rad)) /
+		(math.Cos(lat*deg2rad) * math.Cos(decl*deg2rad))
 }
 
-// riseAzimuth returns the sunrise azimuth from north clockwise (degrees),
-// using the identity cos(Az) = sin(decl) / cos(lat) at altitude ≈ 0.
-// Sunset azimuth = 360° − riseAzimuth.
+// twilightPair computes the begin and end of a twilight defined by zenithDeg.
+// noonMin is solar noon in minutes from UTC midnight on the date of refUTC.
+// Returns empty strings when the twilight does not occur (polar conditions).
+func twilightPair(refUTC time.Time, lat, lon, decl, eotMin, zenithDeg float64, loc *time.Location) (begin, end string) {
+	cHA := cosHourAngle(lat, decl, zenithDeg)
+	if cHA >= 1 || cHA <= -1 {
+		return "", "" // polar condition for this twilight band
+	}
+	haDeg := math.Acos(cHA) * rad2deg
+	noonMin := 720.0 - 4.0*lon - eotMin
+	bTime := minutesToUTC(refUTC, noonMin-4*haDeg)
+	eTime := minutesToUTC(refUTC, noonMin+4*haDeg)
+	return bTime.In(loc).Format("15:04:05"), eTime.In(loc).Format("15:04:05")
+}
+
+// minutesToUTC converts minutes-from-UTC-midnight on the calendar date of ref
+// into an absolute UTC time.Time.
+func minutesToUTC(ref time.Time, minutes float64) time.Time {
+	midnight := time.Date(ref.Year(), ref.Month(), ref.Day(), 0, 0, 0, 0, time.UTC)
+	return midnight.Add(time.Duration(math.Round(minutes*60)) * time.Second)
+}
+
+// riseAzimuth returns the sunrise azimuth (degrees, clockwise from north).
+// Sunset azimuth = 360 − riseAzimuth.
 func riseAzimuth(lat, decl float64) float64 {
-	val := math.Max(-1, math.Min(1, math.Sin(decl*deg2rad)/math.Cos(lat*deg2rad)))
-	return math.Acos(val) * rad2deg
-}
-
-// noonElevation returns the sun's elevation above the horizon at solar noon (degrees).
-func noonElevation(lat, decl float64) float64 {
-	return math.Asin(math.Sin(lat*deg2rad)*math.Sin(decl*deg2rad)+
-		math.Cos(lat*deg2rad)*math.Cos(decl*deg2rad)) * rad2deg
+	v := math.Max(-1, math.Min(1, math.Sin(decl*deg2rad)/math.Cos(lat*deg2rad)))
+	return math.Acos(v) * rad2deg
 }
 
 // ---------------------------------------------------------------------------
-//  Response types
+//  Request / Response types
 // ---------------------------------------------------------------------------
 
-// SunResponse is the JSON body returned by GET /api/v1/sun.
-// Time fields are formatted as "HH:MM:SS" in the requested timezone.
-// An empty string means the event does not occur on this day (polar condition).
+// SunRequest is the JSON body for POST /api/v1/sun.
+type SunRequest struct {
+	// Required
+	Latitude  *float64 `json:"latitude"`
+	Longitude *float64 `json:"longitude"`
+
+	// Optional — output timezone
+	Timezone string `json:"timezone"` // IANA, default "UTC"
+
+	// Optional — time
+	Timestamp *int64 `json:"timestamp"` // Unix seconds UTC, default now
+
+	// Optional — physical observer parameters (affect NREL SPA accuracy)
+	Elevation   *float64 `json:"elevation"`    // metres above sea level, default 0
+	Pressure    *float64 `json:"pressure"`     // atmospheric pressure hPa, default 1013.25
+	Temperature *float64 `json:"temperature"`  // air temperature °C, default 12.0
+	DeltaT      *float64 `json:"delta_t"`      // TT − UT1 seconds, auto-estimated if absent
+}
+
+// SunResponse is the JSON body returned by POST /api/v1/sun.
 type SunResponse struct {
+	// Input echo
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 	Timezone  string  `json:"timezone"`
 	Timestamp int64   `json:"timestamp"`
 	Date      string  `json:"date"`
 
+	// Physical parameters used in the NREL SPA computation
+	ObserverElevationM   float64 `json:"observer_elevation_m"`
+	ObserverPressureHpa  float64 `json:"observer_pressure_hpa"`
+	ObserverTemperatureC float64 `json:"observer_temperature_c"`
+	DeltaTSeconds        float64 `json:"delta_t_s"`
+
+	// Solar events (empty string = event does not occur on this date)
 	Sunrise   string `json:"sunrise"`
 	Sunset    string `json:"sunset"`
 	SolarNoon string `json:"solar_noon"`
 	DayLength string `json:"day_length"`
 
-	CivilTwilightBegin string `json:"civil_twilight_begin"`
-	CivilTwilightEnd   string `json:"civil_twilight_end"`
-	NautTwilightBegin  string `json:"nautical_twilight_begin"`
-	NautTwilightEnd    string `json:"nautical_twilight_end"`
-	AstroTwilightBegin string `json:"astronomical_twilight_begin"`
-	AstroTwilightEnd   string `json:"astronomical_twilight_end"`
+	// Twilight times
+	CivilTwilightBegin  string `json:"civil_twilight_begin"`
+	CivilTwilightEnd    string `json:"civil_twilight_end"`
+	NautTwilightBegin   string `json:"nautical_twilight_begin"`
+	NautTwilightEnd     string `json:"nautical_twilight_end"`
+	AstroTwilightBegin  string `json:"astronomical_twilight_begin"`
+	AstroTwilightEnd    string `json:"astronomical_twilight_end"`
 
+	// Sun angles at key events
 	SunriseAzimuth float64 `json:"sunrise_azimuth_deg"`
 	SunsetAzimuth  float64 `json:"sunset_azimuth_deg"`
 	NoonElevation  float64 `json:"noon_elevation_deg"`
 	NoonAzimuth    float64 `json:"noon_azimuth_deg"`
 
+	// Polar conditions
 	PolarDay   bool `json:"polar_day"`
 	PolarNight bool `json:"polar_night"`
 
-	// Instantaneous sun position at the queried timestamp.
+	// Instantaneous position at the queried timestamp
 	CurrentAzimuth   float64 `json:"current_azimuth_deg"`
 	CurrentElevation float64 `json:"current_elevation_deg"`
-	CurrentTimeLocal string  `json:"current_time_local"` // HH:MM:SS in the requested timezone
+	CurrentTimeLocal string  `json:"current_time_local"`
 }
 
 // errorResponse is the JSON body returned on 4xx errors.
@@ -216,7 +217,7 @@ func main() {
 	http.HandleFunc("/openapi.json", openapiHandler)
 	http.HandleFunc("/api/v1/sun", sunHandler)
 
-	log.Printf("Sun-over-HTTP API listening on %s", addr)
+	log.Printf("Sun-over-HTTP API listening on %s (powered by NREL SPA via go-spa)", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("Server exited: %v", err)
 	}
@@ -240,23 +241,13 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write(indexHTML)
 }
-
 func faviconHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "image/png")
 	w.Write(faviconPNG)
 }
-
 func openapiHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(openapiJSON)
-}
-
-// SunRequest is the JSON body expected by POST /api/v1/sun.
-type SunRequest struct {
-	Latitude  *float64 `json:"latitude"`  // required, -90..90
-	Longitude *float64 `json:"longitude"` // required, -180..180
-	Timezone  string   `json:"timezone"`  // optional, IANA name, default UTC
-	Timestamp *int64   `json:"timestamp"` // optional, Unix seconds UTC, default now
 }
 
 func sunHandler(w http.ResponseWriter, r *http.Request) {
@@ -278,7 +269,7 @@ func sunHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	lat := *req.Latitude
 	if lat < -90 || lat > 90 {
-		writeError(w, http.StatusBadRequest, "latitude must be in the range [-90, 90]")
+		writeError(w, http.StatusBadRequest, "latitude must be in [-90, 90]")
 		return
 	}
 
@@ -289,7 +280,7 @@ func sunHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	lon := *req.Longitude
 	if lon < -180 || lon > 180 {
-		writeError(w, http.StatusBadRequest, "longitude must be in the range [-180, 180]")
+		writeError(w, http.StatusBadRequest, "longitude must be in [-180, 180]")
 		return
 	}
 
@@ -300,7 +291,8 @@ func sunHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	loc, err := time.LoadLocation(tzName)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("unknown timezone: %q — use an IANA timezone name such as Europe/Paris or America/New_York", tzName))
+		writeError(w, http.StatusBadRequest,
+			fmt.Sprintf("unknown timezone: %q — use an IANA name such as Europe/Paris", tzName))
 		return
 	}
 
@@ -312,38 +304,36 @@ func sunHandler(w http.ResponseWriter, r *http.Request) {
 		inputTime = time.Unix(*req.Timestamp, 0)
 	}
 
-	// targetDate determines which calendar day to use for rise/set computation.
-	targetDate := inputTime.In(loc)
-	resp := computeSolar(lat, lon, loc, targetDate)
+	// Physical parameters — optional, use defaults when absent
+	elevation := defaultElevation
+	if req.Elevation != nil {
+		elevation = *req.Elevation
+	}
+	pressure := defaultPressure
+	if req.Pressure != nil {
+		pressure = *req.Pressure
+	}
+	temperature := defaultTemperature
+	if req.Temperature != nil {
+		temperature = *req.Temperature
+	}
+	deltaT := estimateDeltaT(inputTime)
+	if req.DeltaT != nil {
+		deltaT = *req.DeltaT
+	}
 
-	// Instantaneous sun position at the exact queried moment.
-	az, el := sunPositionAt(lat, lon, inputTime)
-	round2 := func(v float64) float64 { return math.Round(v*100) / 100 }
-	resp.CurrentAzimuth = round2(az)
-	resp.CurrentElevation = round2(el)
-	resp.CurrentTimeLocal = inputTime.In(loc).Format("15:04:05")
-
+	resp := computeSolar(lat, lon, loc, inputTime, elevation, pressure, temperature, deltaT)
 	writeJSON(w, http.StatusOK, resp)
 }
 
 // ---------------------------------------------------------------------------
-//  Solar computation
+//  Solar computation — powered by NREL SPA via go-spa
 // ---------------------------------------------------------------------------
 
-// computeSolar runs the full solar position algorithm and returns the populated
-// SunResponse for the given location, timezone, and calendar date.
-func computeSolar(lat, lon float64, loc *time.Location, date time.Time) SunResponse {
-	// Reference Julian Day: noon UTC on the target calendar date.
-	refUTC := time.Date(date.Year(), date.Month(), date.Day(), 12, 0, 0, 0, time.UTC)
-	jd := julianDay(refUTC)
-	decl, eqtime := solarData(jd)
+func computeSolar(lat, lon float64, loc *time.Location, inputTime time.Time,
+	elevation, pressure, temperature, deltaT float64) SunResponse {
 
-	// Solar noon in minutes from midnight UTC.
-	noonMin := 720.0 - 4.0*lon - eqtime
-	noonUTC := minutesToTime(refUTC, noonMin)
-
-	// Local format helpers.
-	fmtTime := func(t time.Time) string { return t.In(loc).Format("15:04:05") }
+	round2 := func(v float64) float64 { return math.Round(v*100) / 100 }
 	fmtDur := func(d time.Duration) string {
 		d = d.Round(time.Second)
 		h := int(d.Hours())
@@ -351,112 +341,138 @@ func computeSolar(lat, lon float64, loc *time.Location, date time.Time) SunRespo
 		s := int(d.Seconds()) % 60
 		return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
 	}
-	round2 := func(v float64) float64 { return math.Round(v*100) / 100 }
 
-	// Canonical UTC midnight of the target local date — used as the echoed timestamp.
-	utcMidnight := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc).UTC()
+	// Target local calendar date
+	localDay := inputTime.In(loc)
 
-	resp := SunResponse{
-		Latitude:      round2(lat),
-		Longitude:     round2(lon),
-		Timezone:      loc.String(),
-		Timestamp:     utcMidnight.Unix(),
-		Date:          date.In(loc).Format("2006-01-02"),
-		SolarNoon:     fmtTime(noonUTC),
-		NoonElevation: round2(noonElevation(lat, decl)),
+	// UTC midnight of the target local date — used as the reference for twilight maths
+	utcMidnight := time.Date(localDay.Year(), localDay.Month(), localDay.Day(), 0, 0, 0, 0, loc).UTC()
+
+	// Noon in the observer's timezone — used for rise/set/transit SPA call
+	noonLocal := time.Date(localDay.Year(), localDay.Month(), localDay.Day(), 12, 0, 0, 0, loc)
+
+	// ── 1. NREL SPA: rise / transit / set + declination + equation of time ──
+	//
+	// We pass noon local time; go-spa extracts year/month/day/hour + UTC offset.
+	// SpaZaRts computes zenith, azimuth, EOT, and rise/transit/set.
+	spaRts, err := gospa.NewSpa(
+		noonLocal, lat, lon,
+		elevation, pressure, temperature,
+		deltaT, defaultDeltaUT1,
+		0, 0, // slope, azm_rotation (not used here)
+		defaultAtmosRefract,
+	)
+	if err != nil {
+		log.Printf("go-spa RTS init error: %v", err)
+	} else {
+		spaRts.SetSPAFunction(gospa.SpaZaRts)
+		if err = spaRts.Calculate(); err != nil {
+			log.Printf("go-spa RTS calculate error: %v", err)
+		}
 	}
 
-	// Noon azimuth: 180° (south) when lat ≥ decl, 0° (north) otherwise.
+	// Accurate geocentric declination and equation of time at noon (minutes).
+	// These feed the twilight hour angle computation.
+	var decl, eotMin float64
+	if err == nil {
+		decl = spaRts.GetDelta() // geocentric declination (degrees)
+		eotMin = spaRts.GetEot() // equation of time (minutes)
+	}
+
+	// ── 2. Polar detection via hour angle formula ──
+	cHA := cosHourAngle(lat, decl, zenithSunrise)
+	isPolarNight := cHA > 1
+	isPolarDay := cHA < -1
+
+	// ── 3. Populate response base ──
+	resp := SunResponse{
+		Latitude:             round2(lat),
+		Longitude:            round2(lon),
+		Timezone:             loc.String(),
+		Timestamp:            utcMidnight.Unix(),
+		Date:                 localDay.Format("2006-01-02"),
+		ObserverElevationM:   elevation,
+		ObserverPressureHpa:  pressure,
+		ObserverTemperatureC: temperature,
+		DeltaTSeconds:        round2(deltaT),
+		PolarDay:             isPolarDay,
+		PolarNight:           isPolarNight,
+	}
+
+	// ── 4. Noon elevation & azimuth (from NREL SPA) ──
+	noonZenith := 90 - spaRts.GetE() // E = topocentric elevation with refraction
+	resp.NoonElevation = round2(90 - noonZenith)
+	// Noon azimuth: south (180°) when lat ≥ decl, north (0°) otherwise.
 	if lat >= decl {
 		resp.NoonAzimuth = 180.0
 	}
 
-	// Sunrise / Sunset.
-	ha, ok, isPolarDay := hourAngle(lat, decl, zenithSunrise)
-	switch {
-	case isPolarDay:
-		resp.PolarDay = true
-		resp.DayLength = "24:00:00"
-	case !ok:
-		resp.PolarNight = true
-		resp.DayLength = "00:00:00"
-	default:
-		riseUTC := minutesToTime(refUTC, noonMin-4*ha)
-		setUTC := minutesToTime(refUTC, noonMin+4*ha)
-		resp.Sunrise = fmtTime(riseUTC)
-		resp.Sunset = fmtTime(setUTC)
-		resp.DayLength = fmtDur(setUTC.Sub(riseUTC))
+	// ── 5. Sunrise / Sunset / Solar Noon / Day Length ──
+	if !isPolarNight && !isPolarDay && err == nil {
+		// go-spa returns time.Time in the observer's timezone (Location from noonLocal)
+		srTime := spaRts.GetSunrise()
+		ssTime := spaRts.GetSunset()
+
+		resp.Sunrise = srTime.Format("15:04:05")
+		resp.Sunset = ssTime.Format("15:04:05")
+
+		// Solar noon from GetSuntransit() (decimal local hours)
+		transitHr := spaRts.GetSuntransit()
+		totalSec := int(math.Round(transitHr * 3600))
+		th := totalSec / 3600
+		tm := (totalSec % 3600) / 60
+		ts := totalSec % 60
+		noonTime := time.Date(localDay.Year(), localDay.Month(), localDay.Day(), th, tm, ts, 0, loc)
+		resp.SolarNoon = noonTime.Format("15:04:05")
+
+		// Day length — handle inverted case (day spans midnight)
+		dur := ssTime.Sub(srTime)
+		if dur < 0 {
+			dur += 24 * time.Hour
+		}
+		resp.DayLength = fmtDur(dur)
+
+		// Azimuth at rise/set
 		az := riseAzimuth(lat, decl)
 		resp.SunriseAzimuth = round2(az)
 		resp.SunsetAzimuth = round2(360 - az)
+	} else if isPolarDay {
+		resp.DayLength = "24:00:00"
+	} else {
+		resp.DayLength = "00:00:00"
 	}
 
-	// Civil twilight.
-	if ha, ok, pd := hourAngle(lat, decl, zenithCivil); ok && !pd {
-		resp.CivilTwilightBegin = fmtTime(minutesToTime(refUTC, noonMin-4*ha))
-		resp.CivilTwilightEnd = fmtTime(minutesToTime(refUTC, noonMin+4*ha))
-	}
+	// ── 6. Twilights (hour angle formula + NREL-accurate decl & eotMin) ──
+	refUTC := noonLocal.UTC() // reference for minutesToUTC
+	resp.CivilTwilightBegin, resp.CivilTwilightEnd =
+		twilightPair(refUTC, lat, lon, decl, eotMin, zenithCivil, loc)
+	resp.NautTwilightBegin, resp.NautTwilightEnd =
+		twilightPair(refUTC, lat, lon, decl, eotMin, zenithNautical, loc)
+	resp.AstroTwilightBegin, resp.AstroTwilightEnd =
+		twilightPair(refUTC, lat, lon, decl, eotMin, zenithAstronomic, loc)
 
-	// Nautical twilight.
-	if ha, ok, pd := hourAngle(lat, decl, zenithNautical); ok && !pd {
-		resp.NautTwilightBegin = fmtTime(minutesToTime(refUTC, noonMin-4*ha))
-		resp.NautTwilightEnd = fmtTime(minutesToTime(refUTC, noonMin+4*ha))
+	// ── 7. Instantaneous position at the exact queried timestamp ──
+	inputLocal := inputTime.In(loc)
+	spaCur, errCur := gospa.NewSpa(
+		inputLocal, lat, lon,
+		elevation, pressure, temperature,
+		deltaT, defaultDeltaUT1,
+		0, 0,
+		defaultAtmosRefract,
+	)
+	if errCur == nil {
+		spaCur.SetSPAFunction(gospa.SpaZa)
+		if errCur = spaCur.Calculate(); errCur == nil {
+			resp.CurrentAzimuth = round2(spaCur.GetAzimuth())
+			resp.CurrentElevation = round2(90 - spaCur.GetZenith())
+		}
 	}
-
-	// Astronomical twilight.
-	if ha, ok, pd := hourAngle(lat, decl, zenithAstronomic); ok && !pd {
-		resp.AstroTwilightBegin = fmtTime(minutesToTime(refUTC, noonMin-4*ha))
-		resp.AstroTwilightEnd = fmtTime(minutesToTime(refUTC, noonMin+4*ha))
+	if errCur != nil {
+		log.Printf("go-spa Za calculate error: %v", errCur)
 	}
+	resp.CurrentTimeLocal = inputLocal.Format("15:04:05")
 
 	return resp
-}
-
-// sunPositionAt computes the sun's azimuth (from north, clockwise) and elevation
-// (degrees above horizon, with atmospheric refraction) for a specific observer
-// and moment in time. Uses the same NOAA/Meeus algorithm as the rest of the file.
-func sunPositionAt(lat, lon float64, t time.Time) (azimuth, elevation float64) {
-	jd := julianDay(t)
-	decl, eqtime := solarData(jd)
-
-	// True solar hour angle (degrees).
-	// UTC decimal hours of the moment.
-	tUTC := t.UTC()
-	utcH := float64(tUTC.Hour()) + float64(tUTC.Minute())/60.0 + float64(tUTC.Second())/3600.0
-	// Apparent solar time (hours): shift from UTC by longitude and equation of time.
-	solarH := utcH + lon/15.0 + eqtime/60.0
-	// Hour angle: 0 at solar noon, positive in afternoon.
-	H := (solarH - 12.0) * 15.0
-	Hr := H * deg2rad
-	latR := lat * deg2rad
-	declR := decl * deg2rad
-
-	// Sin of elevation (altitude above horizon).
-	sinEl := math.Sin(latR)*math.Sin(declR) + math.Cos(latR)*math.Cos(declR)*math.Cos(Hr)
-	sinEl = math.Max(-1, math.Min(1, sinEl))
-	el := math.Asin(sinEl) * rad2deg
-
-	// Atmospheric refraction correction (Bennett 1982, accurate to 0.07′).
-	if el > -1.0 {
-		r := 1.02 / math.Tan((el+10.3/(el+5.11))*deg2rad) / 60.0
-		el += r
-	}
-	elevation = el
-
-	// Azimuth from north, clockwise.
-	cosEl := math.Cos(elevation * deg2rad)
-	if cosEl < 1e-10 {
-		// Sun at or very near zenith: azimuth undefined, return 0.
-		return
-	}
-	cosAz := (math.Sin(declR) - math.Sin(latR)*sinEl) / (math.Cos(latR) * cosEl)
-	cosAz = math.Max(-1, math.Min(1, cosAz))
-	az := math.Acos(cosAz) * rad2deg
-	if math.Sin(Hr) > 0 { // afternoon/west half: mirror azimuth
-		az = 360 - az
-	}
-	azimuth = az
-	return
 }
 
 // ---------------------------------------------------------------------------

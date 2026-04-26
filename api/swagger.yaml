@@ -1,13 +1,22 @@
 openapi: 3.1.0
 info:
   title: Sun-over-HTTP API
-  version: 1.0.0
+  version: 2.0.0
   description: |
     HTTP service that returns solar position data (sunrise, sunset, twilights,
     solar noon, and sun angles) for any location on Earth.
 
-    All times are returned in the timezone specified by the `timezone` field
-    (IANA format). If no timezone is provided, UTC is used.
+    Powered by the **NREL Solar Position Algorithm** (SPA) via
+    [go-spa](https://github.com/maltegrosse/go-spa), accurate to **±0.0003°**
+    in azimuth and zenith (Reda & Andreas, 2004). Valid for years −2000 to 6000.
+
+    Optional physical parameters (`elevation`, `pressure`, `temperature`,
+    `delta_t`) allow fine-tuning atmospheric refraction and the ΔT correction.
+    When omitted, sensible defaults are applied and ΔT is auto-estimated using
+    the Espenak & Meeus (2006) polynomial.
+
+    All times are returned in the observer's timezone (`timezone` field,
+    IANA format, default UTC).
 
 servers:
   - url: http://localhost:8080
@@ -24,24 +33,31 @@ paths:
       summary: Get solar data for a given location and time
       operationId: getSun
       description: >
-        Accepts a JSON body describing the observer location and optional time.
-        Returns sunrise, sunset, solar noon, twilight times, sun angles, and the
-        instantaneous sun position at the requested timestamp.
-        All times are expressed in the requested timezone (default: UTC).
+        Accepts a JSON body describing the observer location, optional physical
+        parameters, and optional timestamp. Returns sunrise, sunset, solar noon,
+        twilight times, sun angles, and the instantaneous sun position at the
+        requested timestamp. Powered by the NREL SPA.
       requestBody:
         required: true
-        description: Solar query parameters
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/SunRequest"
             examples:
               paris_now:
-                summary: "Paris, now"
+                summary: "Paris — current time"
                 value: { latitude: 48.8566, longitude: 2.3522, timezone: "Europe/Paris" }
-              pau_tokyo_tz:
-                summary: "Pau in Asia/Tokyo timezone"
-                value: { latitude: 43.868, longitude: -0.493, timezone: "Asia/Tokyo", timestamp: 1776686217 }
+              mountain_station:
+                summary: "High-altitude station with all params"
+                value:
+                  latitude: 45.8326
+                  longitude: 6.8652
+                  timezone: "Europe/Paris"
+                  timestamp: 1745107200
+                  elevation: 4808
+                  pressure: 545.0
+                  temperature: -15.0
+                  delta_t: 69.2
       responses:
         "200":
           description: Solar data for the requested location and time.
@@ -83,43 +99,86 @@ components:
         timezone:
           type: string
           default: UTC
-          description: IANA timezone name of the observer's location. Used for all output times (default: UTC).
+          description: >
+            IANA timezone name of the observer's location.
+            All output times are expressed in this timezone (default: UTC).
           example: Europe/Paris
         timestamp:
           type: integer
           format: int64
           description: >
-            Unix timestamp in seconds (UTC epoch). Determines both the target day
-            and the instantaneous sun position. Defaults to current time when omitted.
+            Unix timestamp in seconds (UTC epoch). Determines the target day
+            and the instantaneous sun position. Defaults to current time.
           example: 1745107200
+        elevation:
+          type: number
+          default: 0
+          description: >
+            Observer altitude above sea level in metres.
+            Affects atmospheric refraction in the NREL SPA.
+            Default: 0 m (sea level).
+          example: 1830
+        pressure:
+          type: number
+          default: 1013.25
+          description: >
+            Atmospheric pressure at the observer's location in hPa.
+            Affects refraction correction.
+            Default: 1013.25 hPa (ISA standard sea level).
+          example: 820
+        temperature:
+          type: number
+          default: 12
+          description: >
+            Air temperature at the observer's location in degrees Celsius.
+            Affects refraction correction.
+            Default: 12 °C (ICAO standard atmosphere, low altitude).
+          example: 11
+        delta_t:
+          type: number
+          description: >
+            Difference between Terrestrial Time and UT1 in seconds (ΔT = TT − UT1).
+            If omitted, estimated automatically via Espenak & Meeus (2006)
+            polynomial (accuracy ±5 s for 2005–2050). Current value: ~69 s.
+          example: 69.2
 
     SunResponse:
       type: object
       properties:
-        latitude:                    { type: number,  description: "Observer latitude (degrees)." }
-        longitude:                   { type: number,  description: "Observer longitude (degrees)." }
-        timezone:                    { type: string,  description: "IANA timezone used for output times." }
-        timestamp:                   { type: integer, description: "Unix timestamp of UTC midnight of the target local date." }
-        date:                        { type: string,  description: "Target date (YYYY-MM-DD) in the requested timezone." }
-        sunrise:                     { type: string,  description: "Sunrise time (HH:MM:SS). Empty during polar night." }
-        sunset:                      { type: string,  description: "Sunset time (HH:MM:SS). Empty during polar day." }
-        solar_noon:                  { type: string,  description: "Solar noon (HH:MM:SS)." }
-        day_length:                  { type: string,  description: "Day length (HH:MM:SS)." }
-        civil_twilight_begin:        { type: string,  description: "Civil twilight start (sun 6° below horizon)." }
-        civil_twilight_end:          { type: string,  description: "Civil twilight end." }
-        nautical_twilight_begin:     { type: string,  description: "Nautical twilight start (sun 12° below)." }
-        nautical_twilight_end:       { type: string,  description: "Nautical twilight end." }
-        astronomical_twilight_begin: { type: string,  description: "Astronomical twilight start (sun 18° below)." }
-        astronomical_twilight_end:   { type: string,  description: "Astronomical twilight end." }
-        sunrise_azimuth_deg:         { type: number,  description: "Sunrise azimuth from north, clockwise (°)." }
-        sunset_azimuth_deg:          { type: number,  description: "Sunset azimuth from north, clockwise (°)." }
-        noon_elevation_deg:          { type: number,  description: "Sun elevation at solar noon (°)." }
-        noon_azimuth_deg:            { type: number,  description: "Sun azimuth at solar noon — 180 (south) or 0 (north)." }
-        polar_day:                   { type: boolean, description: "True when the sun does not set." }
-        polar_night:                 { type: boolean, description: "True when the sun does not rise." }
-        current_azimuth_deg:         { type: number,  description: "Sun azimuth at the queried timestamp (°)." }
-        current_elevation_deg:       { type: number,  description: "Sun elevation at the queried timestamp (°)." }
-        current_time_local:          { type: string,  description: "Local time at the queried timestamp (HH:MM:SS)." }
+        # Input echo
+        latitude:               { type: number,  description: "Observer latitude (degrees)." }
+        longitude:              { type: number,  description: "Observer longitude (degrees)." }
+        timezone:               { type: string,  description: "IANA timezone of the observer's location." }
+        timestamp:              { type: integer, description: "Unix timestamp of UTC midnight of the target local date." }
+        date:                   { type: string,  description: "Target date (YYYY-MM-DD) in the observer's timezone." }
+        # Physical parameters used
+        observer_elevation_m:   { type: number,  description: "Observer altitude used in NREL SPA (metres)." }
+        observer_pressure_hpa:  { type: number,  description: "Atmospheric pressure used in NREL SPA (hPa)." }
+        observer_temperature_c: { type: number,  description: "Air temperature used in NREL SPA (°C)." }
+        delta_t_s:              { type: number,  description: "ΔT used in NREL SPA (seconds). Provided or auto-estimated." }
+        # Solar events
+        sunrise:                { type: string,  description: "Sunrise time (HH:MM:SS). Empty during polar night." }
+        sunset:                 { type: string,  description: "Sunset time (HH:MM:SS). Empty during polar day." }
+        solar_noon:             { type: string,  description: "Solar noon (HH:MM:SS)." }
+        day_length:             { type: string,  description: "Day length (HH:MM:SS)." }
+        civil_twilight_begin:   { type: string,  description: "Civil twilight start — sun 6° below horizon." }
+        civil_twilight_end:     { type: string,  description: "Civil twilight end." }
+        nautical_twilight_begin:{ type: string,  description: "Nautical twilight start — sun 12° below horizon." }
+        nautical_twilight_end:  { type: string,  description: "Nautical twilight end." }
+        astronomical_twilight_begin: { type: string, description: "Astronomical twilight start — sun 18° below horizon." }
+        astronomical_twilight_end:   { type: string, description: "Astronomical twilight end." }
+        # Angles
+        sunrise_azimuth_deg:    { type: number,  description: "Sunrise azimuth from north, clockwise (°)." }
+        sunset_azimuth_deg:     { type: number,  description: "Sunset azimuth from north, clockwise (°)." }
+        noon_elevation_deg:     { type: number,  description: "Sun elevation at solar noon (°)." }
+        noon_azimuth_deg:       { type: number,  description: "Sun azimuth at solar noon — 180° (south) or 0° (north)." }
+        # Polar conditions
+        polar_day:              { type: boolean, description: "True when the sun does not set." }
+        polar_night:            { type: boolean, description: "True when the sun does not rise." }
+        # Instantaneous position
+        current_azimuth_deg:    { type: number,  description: "Sun azimuth at the queried timestamp (°)." }
+        current_elevation_deg:  { type: number,  description: "Sun elevation at the queried timestamp (°)." }
+        current_time_local:     { type: string,  description: "Local time at the queried timestamp (HH:MM:SS)." }
 
     ErrorResponse:
       type: object

@@ -2,49 +2,66 @@
 
 > **Solar Data over HTTP** — A lightweight, stateless HTTP gateway that exposes solar position data (sunrise, sunset, twilights, and sun angles) as a JSON REST API.
 
-Built in Go with **zero external dependencies**, it embeds the full [NOAA Solar Position Algorithm](https://gml.noaa.gov/grad/solcalc/calcdetails.html) (based on Jean Meeus, *Astronomical Algorithms*) and serves all solar data as structured JSON. The binary embeds a static web UI and an OpenAPI specification — no runtime files required.
+Powered by the **NREL Solar Position Algorithm** (SPA) via [go-spa](https://github.com/maltegrosse/go-spa) — accurate to **±0.0003°** in azimuth and zenith angle (Reda & Andreas, 2004). Valid for years −2000 to 6000.
 
----
-
-## Screenshot
-
-![http2sun Web UI](docs/screenshot.png)
-
-> The embedded web UI (served at `/`) provides an interactive form to query solar data for any location on Earth. It supports **dark and light themes** and is fully translated into **15 languages**.
+The binary embeds a static web UI and an OpenAPI specification — no runtime files required.
 
 ---
 
 ## Disclaimer
 
 This project is released **as-is**, for demonstration or reference purposes.
-It is **not maintained**: no bug fixes, dependency updates, or new features are planned. Issues and pull requests will not be addressed.
+It is **not maintained**: no bug fixes, dependency updates, or new features are planned.
 
 ---
 
 ## License
 
-This project is licensed under the **MIT License** — see the [`LICENSE`](LICENSE) file for details.
-
-```
-MIT License — Copyright (c) 2026 letstool
-```
+MIT License — see [`LICENSE`](LICENSE) for details.
 
 ---
 
 ## Features
 
-- **Zero external dependencies** — the SPA algorithm is implemented directly in Go
-- Single static binary — no external runtime files
-- Embedded web UI and OpenAPI 3.1 specification (`/openapi.json`)
-- Web UI available in **dark and light mode**
-- Web UI fully translated into **15 languages**: Arabic, Bengali, Chinese, German, English, Spanish, French, Hindi, Indonesian, Japanese, Korean, Portuguese, Russian, Urdu, Vietnamese
-- **RTL support** for Arabic and Urdu
+- **NREL Solar Position Algorithm (SPA)** — ±0.0003° accuracy (Reda & Andreas, 2004)
+- Optional physical parameters: observer **elevation**, atmospheric **pressure**, air **temperature**
+- **ΔT auto-estimation** using Espenak & Meeus (2006) polynomial when not provided
 - Solar events: **sunrise, sunset, solar noon, day length**
 - Twilight times: **civil, nautical, and astronomical** (begin and end)
-- Sun angles: **sunrise azimuth, sunset azimuth, noon elevation, noon azimuth**
+- Sun angles: **sunrise/sunset azimuth, noon elevation, noon azimuth**
+- **Instantaneous position**: azimuth and elevation at any Unix timestamp
 - **Polar conditions**: explicit `polar_day` and `polar_night` flags
-- Optional `timestamp` parameter (Unix UTC) — defaults to current time when omitted
+- Single static binary — no external runtime files
+- Embedded web UI (dark/light mode, 15 languages with auto-detection) and OpenAPI 3.1 spec
 - Docker image built on `scratch` — minimal attack surface
+
+---
+
+## Algorithm
+
+Solar calculations use the **NREL Solar Position Algorithm** (SPA), the industry standard:
+
+> I. Reda and A. Andreas, *Solar Position Algorithm for Solar Radiation Applications*, Solar Energy, Vol. 76(5), 2004; pp. 577–589.
+
+Go implementation: [go-spa](https://github.com/maltegrosse/go-spa) by Malte Grosse.
+
+| Property | NREL SPA (this project) |
+|---|---|
+| Azimuth & zenith accuracy | **±0.0003°** |
+| Rise/set accuracy | **< 1 second** |
+| Valid date range | **Year −2000 to 6000** |
+| Observer elevation | ✅ |
+| Atmospheric pressure | ✅ |
+| Air temperature | ✅ |
+| ΔT (TT − UT1) | ✅ auto-estimated or user-provided |
+| Atmospheric refraction | ✅ NREL formula |
+
+### ΔT estimation
+
+When `delta_t` is not provided, ΔT is estimated using the Espenak & Meeus (2006) polynomial:
+
+- 2005–2050: `ΔT = 62.92 + 0.32217·u + 0.005589·u²` (u = year − 2000)
+- Accuracy: ±5 s for dates within 2005–2050 (current actual value ≈ 69 s in 2026)
 
 ---
 
@@ -53,6 +70,7 @@ MIT License — Copyright (c) 2026 letstool
 ### Prerequisites
 
 - [Go](https://go.dev/dl/) **1.24+**
+- Internet access to `github.com` (for go-spa dependency, only needed at build time)
 
 ### Native binary (Linux)
 
@@ -60,20 +78,12 @@ MIT License — Copyright (c) 2026 letstool
 bash scripts/linux_build.sh
 ```
 
-The binary is output to `./out/http2sun`.
-
 ```bash
-go build \
+GOPROXY=direct GONOSUMDB='*' go build \
     -trimpath \
     -ldflags="-extldflags -static -s -w" \
     -tags netgo \
     -o ./out/http2sun ./cmd/http2sun
-```
-
-### Windows
-
-```cmd
-scripts\windows_build.cmd
 ```
 
 ### Docker image
@@ -82,58 +92,25 @@ scripts\windows_build.cmd
 bash scripts/docker_build.sh
 ```
 
-This runs a two-stage Docker build:
-
-1. **Builder** — `golang:1.24-alpine` compiles a static binary
-2. **Runtime** — `scratch` image, containing only the binary
-
-The resulting image is tagged `letstool/http2sun:latest`.
-
 ---
 
 ## Run
 
-### Native (Linux)
-
 ```bash
 bash scripts/linux_run.sh
+# or
+docker run -p 8080:8080 letstool/http2sun:latest
 ```
 
-This sets `LISTEN_ADDR=0.0.0.0:8080` and runs the binary.
-
-### Windows
-
-```cmd
-scripts\windows_run.cmd
-```
-
-### Docker
-
-```bash
-bash scripts/docker_run.sh
-```
-
-Once running, the service is available at [http://localhost:8080](http://localhost:8080).
+Open [http://localhost:8080](http://localhost:8080) for the web UI, or query the API directly.
 
 ---
 
 ## Configuration
 
-Each setting can be provided as a CLI flag or an environment variable. The CLI flag always takes priority. Resolution order: **CLI flag → environment variable → default**.
-
-| CLI flag        | Environment variable | Default         | Description                              |
-|-----------------|----------------------|-----------------|------------------------------------------|
-| `--listen-addr` | `LISTEN_ADDR`        | `127.0.0.1:8080`| Address and port the HTTP server listens on. |
-
-**Examples:**
-
-```bash
-# CLI flag
-./out/http2sun --listen-addr 0.0.0.0:9090
-
-# Environment variable
-LISTEN_ADDR=0.0.0.0:9090 ./out/http2sun
-```
+| CLI flag        | Environment variable | Default          | Description                              |
+|-----------------|----------------------|------------------|------------------------------------------|
+| `--listen-addr` | `LISTEN_ADDR`        | `127.0.0.1:8080` | Address and port the HTTP server listens on |
 
 ---
 
@@ -145,25 +122,33 @@ Returns solar position data for the given location and time.
 
 #### Request body (JSON)
 
-| Parameter   | Required | Default     | Description                                              |
-|-------------|----------|-------------|----------------------------------------------------------|
-| `latitude`  | ✅       | —           | Decimal degrees, −90 (South Pole) to +90 (North Pole)   |
-| `longitude` | ✅       | —           | Decimal degrees, −180 (West) to +180 (East)              |
-| `timezone`  | ❌       | `UTC`       | IANA timezone name of the observer's location (e.g. `Europe/Paris`). All output times are expressed in this timezone. |
-| `timestamp` | ❌       | now         | Unix timestamp in seconds (UTC epoch, e.g. `1745107200`) |
+| Field         | Required | Default   | Description                                                                                |
+|---------------|----------|-----------|--------------------------------------------------------------------------------------------|
+| `latitude`    | ✅       | —         | Decimal degrees, −90 to +90                                                               |
+| `longitude`   | ✅       | —         | Decimal degrees, −180 to +180                                                              |
+| `timezone`    | ❌       | `UTC`     | IANA timezone name of the observer's location. All output times are in this timezone.     |
+| `timestamp`   | ❌       | now       | Unix timestamp in seconds (UTC epoch). Determines target day and instantaneous position.  |
+| `elevation`   | ❌       | `0`       | Observer altitude above sea level in **metres**. Affects NREL refraction correction.     |
+| `pressure`    | ❌       | `1013.25` | Atmospheric pressure in **hPa**. Affects refraction correction.                           |
+| `temperature` | ❌       | `12.0`    | Air temperature in **°C**. Affects refraction correction.                                 |
+| `delta_t`     | ❌       | estimated | ΔT = TT − UT1 in **seconds**. Auto-estimated via Espenak & Meeus (2006) if omitted.     |
 
-#### Example request
+#### Example requests
 
 ```bash
-# Without timestamp → uses current time
-curl -X POST http://localhost:8080/api/v1/sun \\
-  -H "Content-Type: application/json" \\
+# Minimal — Paris, current time
+curl -X POST http://localhost:8080/api/v1/sun \
+  -H "Content-Type: application/json" \
   -d '{"latitude": 48.8566, "longitude": 2.3522, "timezone": "Europe/Paris"}'
 
-# With an explicit Unix timestamp
-curl -X POST http://localhost:8080/api/v1/sun \\
-  -H "Content-Type: application/json" \\
-  -d '{"latitude": 48.8566, "longitude": 2.3522, "timezone": "Europe/Paris", "timestamp": 1745107200}'
+# Full — high-altitude station with all physical parameters
+curl -X POST http://localhost:8080/api/v1/sun \
+  -H "Content-Type: application/json" \
+  -d '{
+    "latitude": 45.8326, "longitude": 6.8652,
+    "timezone": "Europe/Paris", "timestamp": 1745107200,
+    "elevation": 4808, "pressure": 545.0, "temperature": -15.0, "delta_t": 69.2
+  }'
 ```
 
 #### Example response
@@ -175,63 +160,61 @@ curl -X POST http://localhost:8080/api/v1/sun \\
   "timezone": "Europe/Paris",
   "timestamp": 1745107200,
   "date": "2026-04-20",
-  "sunrise": "06:31:02",
-  "sunset": "20:52:18",
-  "solar_noon": "13:41:40",
-  "day_length": "14:21:16",
-  "civil_twilight_begin": "05:58:41",
-  "civil_twilight_end": "21:24:39",
-  "nautical_twilight_begin": "05:19:01",
-  "nautical_twilight_end": "22:04:19",
-  "astronomical_twilight_begin": "04:29:28",
-  "astronomical_twilight_end": "22:53:52",
-  "sunrise_azimuth_deg": 73.14,
-  "sunset_azimuth_deg": 286.86,
-  "noon_elevation_deg": 54.22,
+  "observer_elevation_m": 0,
+  "observer_pressure_hpa": 1013.25,
+  "observer_temperature_c": 12,
+  "delta_t_s": 75.27,
+  "sunrise": "06:49:42",
+  "sunset": "20:49:17",
+  "solar_noon": "13:49:30",
+  "day_length": "13:59:35",
+  "civil_twilight_begin": "06:15:47",
+  "civil_twilight_end": "21:23:12",
+  "nautical_twilight_begin": "05:33:49",
+  "nautical_twilight_end": "22:05:10",
+  "astronomical_twilight_begin": "04:46:58",
+  "astronomical_twilight_end": "22:52:02",
+  "sunrise_azimuth_deg": 72.17,
+  "sunset_azimuth_deg": 287.83,
+  "noon_elevation_deg": 52.76,
   "noon_azimuth_deg": 180,
   "polar_day": false,
-  "polar_night": false
+  "polar_night": false,
+  "current_azimuth_deg": 182.67,
+  "current_elevation_deg": 52.74,
+  "current_time_local": "13:56:57"
 }
 ```
 
 #### Response fields
 
-| Field                        | Type      | Description                                                                   |
-|------------------------------|-----------|-------------------------------------------------------------------------------|
-| `latitude`                   | `number`  | Observer latitude (degrees)                                                   |
-| `longitude`                  | `number`  | Observer longitude (degrees)                                                  |
-| `timezone`                   | `string`  | IANA timezone of the observer's location, used for all output times            |
-| `timestamp`                  | `integer` | Unix timestamp (UTC midnight of the target local date, seconds since epoch)   |
-| `date`                       | `string`  | Target date (YYYY-MM-DD) in the requested timezone                            |
-| `sunrise`                    | `string`  | Sunrise time (HH:MM:SS). Empty string during polar night                      |
-| `sunset`                     | `string`  | Sunset time (HH:MM:SS). Empty string during polar day                         |
-| `solar_noon`                 | `string`  | Solar noon — time of maximum sun elevation (HH:MM:SS)                        |
-| `day_length`                 | `string`  | Day length (HH:MM:SS). `00:00:00` = polar night, `24:00:00` = polar day      |
-| `civil_twilight_begin`       | `string`  | Civil twilight start — sun 6° below horizon. Empty when not applicable        |
-| `civil_twilight_end`         | `string`  | Civil twilight end                                                             |
-| `nautical_twilight_begin`    | `string`  | Nautical twilight start — sun 12° below horizon                               |
-| `nautical_twilight_end`      | `string`  | Nautical twilight end                                                          |
-| `astronomical_twilight_begin`| `string`  | Astronomical twilight start — sun 18° below horizon                           |
-| `astronomical_twilight_end`  | `string`  | Astronomical twilight end                                                      |
-| `sunrise_azimuth_deg`        | `number`  | Sunrise azimuth, clockwise from north (degrees). 0 when no sunrise            |
-| `sunset_azimuth_deg`         | `number`  | Sunset azimuth, clockwise from north (degrees). 0 when no sunset              |
-| `noon_elevation_deg`         | `number`  | Sun elevation at solar noon (degrees). Negative during polar night            |
-| `noon_azimuth_deg`           | `number`  | Sun azimuth at solar noon — `180` (south) or `0` (north)                     |
-| `polar_day`                  | `boolean` | `true` when the sun does not set (midnight sun)                               |
-| `polar_night`                | `boolean` | `true` when the sun does not rise                                             |
-
-#### Polar conditions
-
-For locations at high latitudes, the sun may not cross the horizon on some dates:
-
-- **Polar night** (`polar_night: true`): `sunrise` and `sunset` are empty. Some twilight fields may also be empty. `noon_elevation_deg` will be negative.
-- **Polar day** (`polar_day: true`): `sunrise` and `sunset` are empty. `day_length` is `24:00:00`.
-
-#### Error response (4xx)
-
-```json
-{ "error": "missing required parameter: latitude" }
-```
+| Field                         | Type      | Description                                                                                    |
+|-------------------------------|-----------|------------------------------------------------------------------------------------------------|
+| `latitude`                    | `number`  | Observer latitude (degrees)                                                                    |
+| `longitude`                   | `number`  | Observer longitude (degrees)                                                                   |
+| `timezone`                    | `string`  | IANA timezone of the observer's location                                                       |
+| `timestamp`                   | `integer` | Unix timestamp of UTC midnight of the target local date                                        |
+| `date`                        | `string`  | Target date (YYYY-MM-DD) in the observer's timezone                                            |
+| `observer_elevation_m`        | `number`  | Observer altitude used in NREL SPA (metres)                                                    |
+| `observer_pressure_hpa`       | `number`  | Atmospheric pressure used in NREL SPA (hPa)                                                   |
+| `observer_temperature_c`      | `number`  | Air temperature used in NREL SPA (°C)                                                         |
+| `delta_t_s`                   | `number`  | ΔT value used in NREL SPA (seconds). Provided or auto-estimated.                              |
+| `sunrise`                     | `string`  | Sunrise time (HH:MM:SS). Empty string during polar night                                       |
+| `sunset`                      | `string`  | Sunset time (HH:MM:SS). Empty string during polar day                                          |
+| `solar_noon`                  | `string`  | Solar noon (HH:MM:SS)                                                                         |
+| `day_length`                  | `string`  | Day length (HH:MM:SS). `00:00:00` = polar night, `24:00:00` = polar day                      |
+| `civil_twilight_begin/end`    | `string`  | Civil twilight (sun 6° below horizon). Empty when not applicable.                             |
+| `nautical_twilight_begin/end` | `string`  | Nautical twilight (sun 12° below horizon). Empty when not applicable.                         |
+| `astronomical_twilight_begin/end` | `string` | Astronomical twilight (sun 18° below horizon). Empty when not applicable.                  |
+| `sunrise_azimuth_deg`         | `number`  | Sunrise azimuth, clockwise from north (°). 0 when no sunrise.                                 |
+| `sunset_azimuth_deg`          | `number`  | Sunset azimuth, clockwise from north (°). 0 when no sunset.                                   |
+| `noon_elevation_deg`          | `number`  | Sun elevation at solar noon (°). Negative during polar night.                                  |
+| `noon_azimuth_deg`            | `number`  | Sun azimuth at solar noon — `180` (south) or `0` (north)                                      |
+| `polar_day`                   | `boolean` | `true` when the sun does not set (midnight sun)                                                |
+| `polar_night`                 | `boolean` | `true` when the sun does not rise                                                              |
+| `current_azimuth_deg`         | `number`  | Sun azimuth at the queried timestamp (°), clockwise from north                                 |
+| `current_elevation_deg`       | `number`  | Sun elevation at the queried timestamp (°). Negative when below horizon.                       |
+| `current_time_local`          | `string`  | Local time at the queried timestamp (HH:MM:SS) in the observer's timezone                     |
 
 ### Other endpoints
 
@@ -243,44 +226,13 @@ For locations at high latitudes, the sun may not cross the horizon on some dates
 
 ---
 
-## Supported timezones
-
-Any valid IANA timezone name is accepted (e.g. `UTC`, `Europe/Paris`, `America/New_York`, `Asia/Tokyo`, `Australia/Sydney`). The web UI provides a curated dropdown of ~60 common zones. The full IANA database is embedded in the Go standard library's `time` package.
-
----
-
-## Algorithm
-
-Solar position is computed using the NOAA Solar Position Algorithm, an implementation of the method described in:
-
-> Jean Meeus, *Astronomical Algorithms*, 2nd Edition (1998), Willmann-Bell.
-
-Accuracy: ±1–2 minutes for dates within ±50 years of J2000.0 (January 1, 2000 12:00 TT).
-
-The algorithm computes:
-1. Julian Day Number from the target date
-2. Julian centuries from J2000.0
-3. Sun's mean longitude, mean anomaly, eccentricity
-4. Equation of center, true longitude, apparent longitude
-5. Obliquity of the ecliptic, declination
-6. Equation of time → solar noon in minutes from midnight UTC
-7. Hour angle for each zenith angle → rise/set times
-8. Azimuth at sunrise/sunset, elevation at noon
-
----
-
 ## Development
 
 ```bash
-# Tidy dependencies
-bash scripts/000_init.sh
-
-# Build and run
+bash scripts/000_init.sh   # go mod tidy
 bash scripts/linux_build.sh
 bash scripts/linux_run.sh
-
-# Integration tests (server must be running)
-bash scripts/999_test.sh
+bash scripts/999_test.sh   # smoke tests (server must be running)
 ```
 
 ---

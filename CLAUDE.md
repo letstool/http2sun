@@ -7,12 +7,69 @@ This file provides context for AI-assisted development on the `http2sun` project
 ## Project overview
 
 `http2sun` is a single-binary HTTP gateway that exposes solar position data as a JSON REST API.
-It is written entirely in Go with **zero external dependencies** and embeds all static assets
-(web UI, favicon, OpenAPI spec) at compile time using `//go:embed` directives.
 
-The server accepts `POST /api/v1/sun` requests with a JSON body containing `latitude`, `longitude`, and optionally `timezone` and `timestamp`
-and returns sunrise, sunset, solar noon, twilight times, and sun angles as structured JSON.
-All times are converted to the observer's timezone, specified by the `timezone` JSON field (default: UTC).
+It is written in Go, uses **go-spa** (NREL SPA) for calculations, and embeds all static assets
+(web UI, favicon, OpenAPI spec) at compile time via `//go:embed`. The server accepts
+`POST /api/v1/sun` requests with a JSON body and returns structured solar data.
+
+---
+
+## Solar algorithm
+
+**NREL Solar Position Algorithm (SPA)** — Reda & Andreas, 2004.
+Go implementation: [`github.com/maltegrosse/go-spa`](https://github.com/maltegrosse/go-spa).
+
+| Property | Value |
+|---|---|
+| Azimuth / zenith accuracy | ±0.0003° |
+| Rise/set accuracy | < 1 second |
+| Valid date range | Year −2000 to 6000 |
+
+### go-spa usage pattern
+
+```go
+// Rise / Set / Transit + declination + equation of time
+spa, err := gospa.NewSpa(noonLocal, lat, lon,
+    elevation, pressure, temperature,
+    deltaT, deltaUT1, slope, azmRotation, atmosRefract)
+spa.SetSPAFunction(gospa.SpaZaRts)
+spa.Calculate()
+
+// Instantaneous position (azimuth/zenith only)
+spa2, _ := gospa.NewSpa(inputTime, lat, lon, ...)
+spa2.SetSPAFunction(gospa.SpaZa)
+spa2.Calculate()
+azimuth   := spa2.GetAzimuth()    // degrees, clockwise from north
+elevation := 90 - spa2.GetZenith() // degrees above horizon
+```
+
+### Twilight computation
+
+go-spa **cannot** compute twilights via the `atmosRefract` hack (validates `|atmosRefract| ≤ 5`,
+which rules out civil/nautical/astronomical depression angles).
+
+Twilights are computed using the **hour angle formula** fed with NREL-accurate `GetDelta()`
+(geocentric declination) and `GetEot()` (equation of time) from the noon SPA call:
+
+```
+cos(H) = (cos(zenith) − sin(lat)·sin(decl)) / (cos(lat)·cos(decl))
+```
+
+- Civil: zenith = 96°
+- Nautical: zenith = 102°
+- Astronomical: zenith = 108°
+
+This is much more accurate than the previous Meeus-only implementation because declination
+and EoT now come from the full NREL perturbation tables.
+
+### ΔT auto-estimation
+
+When `delta_t` is not provided by the caller, ΔT is estimated via Espenak & Meeus (2006):
+
+- 2005–2050: `ΔT = 62.92 + 0.32217·u + 0.005589·u²` (u = year − 2000)
+- Accuracy: ±5 s for dates within this range
+
+The caller can override with an explicit `delta_t` field in the JSON body.
 
 ---
 
@@ -21,111 +78,40 @@ All times are converted to the observer's timezone, specified by the `timezone` 
 ```
 .
 ├── api/
-│   └── swagger.yaml              # OpenAPI 3.1 source (human-editable)
+│   └── swagger.yaml              # OpenAPI 3.1 source
 ├── build/
-│   └── Dockerfile                # Two-stage Docker build (builder + scratch runtime)
+│   └── Dockerfile                # Two-stage Docker build (builder + scratch)
 ├── cmd/
 │   └── http2sun/
 │       ├── main.go               # Entire application — single file
 │       └── static/
-│           ├── favicon.png       # Embedded at build time
+│           ├── favicon.png
 │           ├── index.html        # Embedded web UI (dark/light, 15 languages)
 │           └── openapi.json      # Embedded OpenAPI spec
 ├── scripts/
 │   ├── 000_init.sh               # go mod tidy
-│   ├── 999_test.sh               # Integration smoke tests (curl + jq)
-│   ├── linux_build.sh            # Native static binary build
-│   ├── linux_run.sh              # Run binary on Linux
-│   ├── docker_build.sh           # Build Docker image
-│   ├── docker_run.sh             # Run Docker container
-│   ├── windows_build.cmd         # Native build on Windows
-│   └── windows_run.cmd           # Run binary on Windows
-├── go.mod                        # No external dependencies
-├── go.sum                        # Empty
-├── LICENSE                       # MIT
+│   ├── 999_test.sh               # Integration smoke tests
+│   ├── linux_build.sh / linux_run.sh
+│   ├── docker_build.sh / docker_run.sh
+│   └── windows_build.cmd / windows_run.cmd
+├── go.mod                        # Requires go-spa
+├── go.sum
+├── LICENSE
 ├── README.md
-└── CLAUDE.md                     # This file
+└── CLAUDE.md
 ```
 
 ---
 
 ## Key design decisions
 
-- **Single `main.go`**: the entire server logic lives in `cmd/http2sun/main.go`. There are no internal packages. Keep it that way unless the file grows substantially.
-- **Embedded assets**: `favicon.png`, `index.html`, and `openapi.json` are embedded with `//go:embed`. Any change to these files is picked up at the next `go build`.
-- **Zero external dependencies**: the solar position algorithm is implemented directly in `main.go`. Do not add the `github.com/maltegrosse/go-spa` or any other dependency unless strictly necessary. The `go.sum` file is intentionally empty.
-- **Static binary**: the build uses `-tags netgo` and `-ldflags "-extldflags -static"` to produce a fully self-contained binary with no libc dependency. Do not introduce `cgo` dependencies.
-- **No framework**: the HTTP layer uses only the standard library (`net/http`). Do not add a router or web framework.
-- **POST with JSON body**: the `/api/v1/sun` endpoint uses HTTP POST. The request body is a JSON object with `latitude`, `longitude`, and optionally `timezone` and `timestamp`. Pointer types (`*float64`, `*int64`) are used in `SunRequest` to distinguish omitted fields from zero values.
-
----
-
-## Solar Position Algorithm
-
-The algorithm is based on the **NOAA Solar Position Algorithm**, an implementation of the method from:
-
-> Jean Meeus, *Astronomical Algorithms*, 2nd Edition (1998), Willmann-Bell.
-
-Accuracy: ±1–2 minutes for dates within ±50 years of J2000.0.
-
-### Key functions in `main.go`
-
-| Function | Description |
-|---|---|
-| `julianDay(t time.Time) float64` | Convert UTC time to Julian Day Number |
-| `solarData(jd float64) (decl, eqtime float64)` | Compute declination and equation of time |
-| `hourAngle(lat, decl, zenith float64) (ha, ok, polarDay bool)` | Hour angle for a given zenith angle |
-| `minutesToTime(ref time.Time, min float64) time.Time` | Minutes-from-midnight-UTC to absolute time |
-| `riseAzimuth(lat, decl float64) float64` | Sunrise azimuth from north (sunset = 360 − rise) |
-| `noonElevation(lat, decl float64) float64` | Sun elevation at solar noon |
-| `computeSolar(lat, lon float64, loc *time.Location, date time.Time) SunResponse` | Main computation — calls all of the above |
-
-### Zenith angles
-
-| Event | Zenith angle |
-|---|---|
-| Sunrise / Sunset | 90.833° (includes refraction + solar disc) |
-| Civil twilight | 96° |
-| Nautical twilight | 102° |
-| Astronomical twilight | 108° |
-
-### Polar conditions
-
-`hourAngle` returns `(0, false, false)` for polar night (cos(HA) > 1) and `(180, false, true)` for polar day (cos(HA) < −1). `computeSolar` sets `PolarDay`/`PolarNight` flags and leaves the corresponding time fields as empty strings.
-
----
-
-## Environment variables & CLI flags
-
-| Environment variable | CLI flag        | Default          | Description |
-|----------------------|-----------------|------------------|-------------|
-| `LISTEN_ADDR`        | `--listen-addr` | `127.0.0.1:8080` | Listen address. A bare port (e.g. `8080`) is accepted. |
-
-CLI flags are parsed with the standard library `flag` package. Any new configuration entry must expose both a flag and its environment variable counterpart.
-
----
-
-## Build & run commands
-
-```bash
-# Initialise / tidy dependencies
-bash scripts/000_init.sh
-
-# Build native static binary → ./out/http2sun
-bash scripts/linux_build.sh
-
-# Run (sets LISTEN_ADDR=0.0.0.0:8080)
-bash scripts/linux_run.sh
-
-# Build Docker image → letstool/http2sun:latest
-bash scripts/docker_build.sh
-
-# Run Docker container
-bash scripts/docker_run.sh
-
-# Smoke tests (server must be running)
-bash scripts/999_test.sh
-```
+- **Single `main.go`**: all server logic lives in one file. Keep it that way.
+- **Embedded assets**: `//go:embed` directives include static files at build time.
+- **Only one external dependency**: `github.com/maltegrosse/go-spa`. No other dependencies.
+- **Static binary**: `-tags netgo -extldflags -static`. No cgo.
+- **No HTTP framework**: uses only `net/http`.
+- **POST with JSON body**: the `/api/v1/sun` endpoint uses HTTP POST. Required fields use pointer types (`*float64`) to distinguish absent from zero.
+- **`_ "time/tzdata"`**: embeds the full IANA timezone database in the binary — required for correct timezone resolution on scratch/Alpine Docker images.
 
 ---
 
@@ -138,19 +124,27 @@ POST /api/v1/sun
 Content-Type: application/json
 ```
 
-### Query parameters
+### Request fields
 
-| Parameter   | Required | Default  | Notes |
-|-------------|----------|----------|-------|
-| `latitude`  | ✅       | —        | float, −90 to +90 |
-| `longitude` | ✅       | —        | float, −180 to +180 |
-| `timezone`  | ❌       | `UTC`    | IANA timezone name of the observer's location. All output times are in this timezone. Loaded via `time.LoadLocation`. | IANA timezone name, loaded via `time.LoadLocation` |
-| `timestamp` | ❌       | now      | Integer Unix seconds (UTC). Parsed from JSON as `*int64` via `json.Decode`. |
+| Field         | Required | Default   | Notes |
+|---------------|----------|-----------|-------|
+| `latitude`    | ✅       | —         | `*float64`, −90 to +90 |
+| `longitude`   | ✅       | —         | `*float64`, −180 to +180 |
+| `timezone`    | ❌       | `UTC`     | IANA name of the observer's location. All output times in this timezone. Loaded via `time.LoadLocation`. |
+| `timestamp`   | ❌       | now       | `*int64`, Unix seconds UTC. `time.Unix(*ts, 0)`. |
+| `elevation`   | ❌       | `0.0`     | `*float64`, metres above sea level. Passed to NREL SPA. |
+| `pressure`    | ❌       | `1013.25` | `*float64`, hPa. Passed to NREL SPA. |
+| `temperature` | ❌       | `12.0`    | `*float64`, °C. Passed to NREL SPA. |
+| `delta_t`     | ❌       | estimated | `*float64`, seconds TT−UT1. Auto-estimated via `estimateDeltaT()` if nil. |
 
 ### Response time fields
 
-All time fields are formatted as `"HH:MM:SS"` in the requested timezone.
-An **empty string `""`** means the event does not occur on this date (polar condition).
+All time fields: `"HH:MM:SS"` in the observer's timezone. Empty string `""` = event does not occur.
+
+### Response echo fields
+
+`observer_elevation_m`, `observer_pressure_hpa`, `observer_temperature_c`, `delta_t_s` echo
+back the physical parameters actually used in the NREL SPA computation (defaults or provided values).
 
 ### Error response
 
@@ -158,53 +152,60 @@ An **empty string `""`** means the event does not occur on this date (polar cond
 { "error": "human-readable message" }
 ```
 
-HTTP status codes: `400` for bad request, `405` for wrong method.
+HTTP: `400` bad request, `405` wrong method.
 
 ### Other endpoints
 
-| Method | Path            | Description                     |
-|--------|-----------------|---------------------------------|
-| `GET`  | `/`             | Embedded interactive web UI     |
-| `GET`  | `/openapi.json` | OpenAPI 3.1 specification       |
-| `GET`  | `/favicon.png`  | Application icon                |
+| `GET /`             | Embedded web UI |
+| `GET /openapi.json` | OpenAPI 3.1 spec |
+| `GET /favicon.png`  | Icon |
 
 ---
 
-## Web UI
+## go-spa: what is and isn't exposed
 
-The UI is a self-contained single-file HTML/JS/CSS application embedded in the binary.
+| go-spa getter | Used for |
+|---|---|
+| `GetAzimuth()` | Current sun azimuth (clockwise from north) |
+| `GetZenith()` | Current sun zenith → elevation = 90 − zenith |
+| `GetE()` | Topocentric elevation with refraction → noon elevation |
+| `GetDelta()` | Geocentric declination → twilight hour angles |
+| `GetEot()` | Equation of time (minutes) → twilight timing |
+| `GetSunrise()` | `time.Time` in observer's timezone |
+| `GetSunset()` | `time.Time` in observer's timezone |
+| `GetSuntransit()` | Decimal local hours of solar noon |
+| `GetSrha()` | Sunrise hour angle (−99999 = polar condition) |
 
-- **Themes**: dark and light, switchable via toggle.
-- **Languages**: 15 locales — Arabic, Bengali, Chinese, German, English, Spanish, French, Hindi, Indonesian, Japanese, Korean, Portuguese, Russian, Urdu, Vietnamese. All translations are in the `TR` object in `index.html`.
-- **RTL support**: Arabic and Urdu switch the layout to right-to-left.
-- **Sun arc diagram**: SVG showing the sun's path across the sky, with rise/set markers and noon dot.
-- **Timeline bar**: 24-hour colour-coded bar showing night, astronomical, nautical, civil twilight, and day.
-- **Data cards**: all solar events and angles displayed as individual cards.
-- **Raw JSON toggle**: shows the raw API response.
-
-To modify the UI, edit `cmd/http2sun/static/index.html` and rebuild.
-To update the API spec, edit `api/swagger.yaml`, copy to `openapi.json`, and rebuild.
+**Polar detection**: `cosHourAngle(lat, decl, 90.833)` — if > 1 → polar night, if < −1 → polar day.
 
 ---
 
-## Constraints & conventions
+## Build commands
 
-- Go version: **1.24+**
-- No `cgo`. Keep `CGO_ENABLED=0`.
-- No additional HTTP frameworks or routers.
-- **No external Go dependencies**. The algorithm is self-contained.
-- `SunRequest` uses pointer types (`*float64`, `*int64`) to distinguish missing fields from zero values.
-- `json.NewDecoder(r.Body).Decode(&req)` parses the request. No third-party library needed.
-- All logic stays in `cmd/http2sun/main.go`.
-- Error responses always return `{ "error": "..." }` JSON — never plain-text.
-- All time outputs are `"HH:MM:SS"` strings, never Unix timestamps or RFC3339.
-- Polar condition fields use empty strings, never `null` or omission.
-- `timestamp` in the response is the Unix timestamp of UTC midnight of the target **local** date (not the input timestamp verbatim), so it can be used as a stable day key.
-- All code, identifiers, comments, and documentation must be written in **English**.
-- **Every configuration environment variable must have a corresponding CLI flag**.
+```bash
+bash scripts/000_init.sh        # go mod tidy
+bash scripts/linux_build.sh     # → ./out/http2sun
+bash scripts/linux_run.sh       # LISTEN_ADDR=0.0.0.0:8080
+bash scripts/docker_build.sh    # letstool/http2sun:latest
+bash scripts/999_test.sh        # smoke tests (server must be running)
+```
+
+---
+
+## Constraints
+
+- Go **1.24+**
+- `CGO_ENABLED=0`
+- No new HTTP frameworks or routers
+- No new Go dependencies beyond `go-spa`
+- Error responses always `{ "error": "..." }` JSON
+- All time outputs `"HH:MM:SS"`, never Unix or RFC3339
+- Polar condition fields: empty strings, never `null`
+- All code and documentation in **English**
+- Every config env var must have a corresponding CLI flag
 
 ---
 
 ## AI-assisted development
 
-This project was developed with the assistance of **Claude Sonnet 4.6** by Anthropic.
+Developed with **Claude Sonnet 4.6** by Anthropic.

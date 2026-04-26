@@ -3,8 +3,8 @@
   "jsonSchemaDialect": "https://spec.openapis.org/oas/3.1/dialect/base",
   "info": {
     "title": "Sun-over-HTTP API",
-    "version": "1.0.0",
-    "description": "HTTP service that returns solar position data (sunrise, sunset, twilights, solar noon, and sun angles) for any location on Earth.\n\nAll times are returned in the timezone specified by the `timezone` field (IANA format). If no timezone is provided, UTC is used."
+    "version": "2.0.0",
+    "description": "HTTP service that returns solar position data (sunrise, sunset, twilights, solar noon, and sun angles) for any location on Earth.\n\nPowered by the **NREL Solar Position Algorithm** (SPA) via [go-spa](https://github.com/maltegrosse/go-spa), accurate to **±0.0003°** in azimuth and zenith (Reda & Andreas, 2004). Valid for years −2000 to 6000.\n\nOptional physical parameters (`elevation`, `pressure`, `temperature`, `delta_t`) allow fine-tuning the atmospheric refraction and ΔT correction. When omitted, defaults are applied and ΔT is auto-estimated using the Espenak & Meeus (2006) polynomial.\n\nAll times are returned in the observer's timezone specified by the `timezone` field (IANA format, default UTC)."
   },
   "servers": [{ "url": "http://localhost:8080", "description": "Local development environment" }],
   "tags": [{ "name": "Sun", "description": "Solar position and event operations" }],
@@ -14,7 +14,7 @@
         "tags": ["Sun"],
         "summary": "Get solar data for a given location and time",
         "operationId": "getSun",
-        "description": "Accepts a JSON body describing the observer location and optional time. Returns sunrise, sunset, solar noon, twilight times, sun angles, and the instantaneous sun position at the requested timestamp. All times are expressed in the requested timezone (default: UTC).",
+        "description": "Accepts a JSON body describing the observer location, optional physical parameters, and optional timestamp. Returns sunrise, sunset, solar noon, twilight times, sun angles at key moments, and the instantaneous sun position at the requested timestamp. Powered by the NREL SPA algorithm.",
         "requestBody": {
           "required": true,
           "description": "Solar query parameters",
@@ -23,12 +23,16 @@
               "schema": { "$ref": "#/components/schemas/SunRequest" },
               "examples": {
                 "paris_now": {
-                  "summary": "Paris, now (no timestamp)",
+                  "summary": "Paris — current time, default physical params",
                   "value": { "latitude": 48.8566, "longitude": 2.3522, "timezone": "Europe/Paris" }
                 },
-                "pau_tokyo_tz": {
-                  "summary": "Pau (France) in Asia/Tokyo timezone",
-                  "value": { "latitude": 43.868, "longitude": -0.493, "timezone": "Asia/Tokyo", "timestamp": 1776686217 }
+                "mountain_station": {
+                  "summary": "High-altitude station with all physical params",
+                  "value": {
+                    "latitude": 45.8326, "longitude": 6.8652, "timezone": "Europe/Paris",
+                    "timestamp": 1745107200,
+                    "elevation": 4808, "pressure": 545.0, "temperature": -15.0, "delta_t": 69.2
+                  }
                 },
                 "svalbard_winter": {
                   "summary": "Svalbard — polar night",
@@ -41,11 +45,7 @@
         "responses": {
           "200": {
             "description": "Solar data for the requested location and time.",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/SunResponse" }
-              }
-            }
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SunResponse" } } }
           },
           "400": {
             "description": "Bad request — missing or invalid field.",
@@ -65,39 +65,47 @@
         "type": "object",
         "required": ["latitude", "longitude"],
         "properties": {
-          "latitude":  { "type": "number",  "minimum": -90,  "maximum": 90,  "description": "Observer latitude in decimal degrees.",  "example": 48.8566 },
-          "longitude": { "type": "number",  "minimum": -180, "maximum": 180, "description": "Observer longitude in decimal degrees.", "example": 2.3522 },
-          "timezone":  { "type": "string",  "default": "UTC", "description": "IANA timezone name of the observer's location. Used for all output times (default: UTC).", "example": "Europe/Paris" },
-          "timestamp": { "type": "integer", "format": "int64", "description": "Unix timestamp in seconds (UTC epoch). Determines both the target day and the instantaneous position. Defaults to current time when omitted.", "example": 1745107200 }
+          "latitude":    { "type": "number", "minimum": -90,  "maximum": 90,  "description": "Observer latitude in decimal degrees.", "example": 48.8566 },
+          "longitude":   { "type": "number", "minimum": -180, "maximum": 180, "description": "Observer longitude in decimal degrees.", "example": 2.3522 },
+          "timezone":    { "type": "string", "default": "UTC", "description": "IANA timezone name of the observer's location. All output times are expressed in this timezone (default: UTC).", "example": "Europe/Paris" },
+          "timestamp":   { "type": "integer", "format": "int64", "description": "Unix timestamp in seconds (UTC epoch). Determines the target day and the instantaneous sun position. Defaults to current time when omitted.", "example": 1745107200 },
+          "elevation":   { "type": "number", "default": 0, "description": "Observer altitude above sea level in metres. Affects atmospheric refraction correction in the NREL SPA. Default: 0 m.", "example": 1830 },
+          "pressure":    { "type": "number", "default": 1013.25, "description": "Atmospheric pressure at the observer's location in hPa (millibars). Affects refraction correction. Default: 1013.25 hPa (standard atmosphere at sea level).", "example": 820 },
+          "temperature": { "type": "number", "default": 12, "description": "Air temperature at the observer's location in degrees Celsius. Affects refraction correction. Default: 12 °C (ICAO standard atmosphere, low altitude).", "example": 11 },
+          "delta_t":     { "type": "number", "description": "Difference between Terrestrial Time (TT) and UT1 in seconds (ΔT = TT − UT1). If omitted, estimated automatically using the Espenak & Meeus (2006) polynomial (accuracy ±5 s for 2005–2050). Current value: ~69 s.", "example": 69.2 }
         }
       },
       "SunResponse": {
         "type": "object",
         "properties": {
-          "latitude":                    { "type": "number",  "description": "Observer latitude (degrees).",  "example": 48.86 },
-          "longitude":                   { "type": "number",  "description": "Observer longitude (degrees).", "example": 2.35 },
-          "timezone":                    { "type": "string",  "description": "IANA timezone used for output times.", "example": "Europe/Paris" },
-          "timestamp":                   { "type": "integer", "description": "Unix timestamp of UTC midnight of the target local date (seconds since epoch).", "example": 1745107200 },
-          "date":                        { "type": "string",  "description": "Target date (YYYY-MM-DD) in the requested timezone.", "example": "2026-04-20" },
-          "sunrise":                     { "type": "string",  "description": "Sunrise time (HH:MM:SS). Empty string during polar night.", "example": "06:31:02" },
-          "sunset":                      { "type": "string",  "description": "Sunset time (HH:MM:SS). Empty string during polar day.", "example": "20:52:18" },
-          "solar_noon":                  { "type": "string",  "description": "Solar noon — time of maximum sun elevation (HH:MM:SS).", "example": "13:41:40" },
-          "day_length":                  { "type": "string",  "description": "Day length (HH:MM:SS). '00:00:00' for polar night, '24:00:00' for polar day.", "example": "14:21:16" },
-          "civil_twilight_begin":        { "type": "string",  "description": "Civil twilight start — sun 6° below horizon (HH:MM:SS).", "example": "05:58:41" },
-          "civil_twilight_end":          { "type": "string",  "description": "Civil twilight end (HH:MM:SS).", "example": "21:24:39" },
-          "nautical_twilight_begin":     { "type": "string",  "description": "Nautical twilight start — sun 12° below horizon (HH:MM:SS).", "example": "05:19:01" },
-          "nautical_twilight_end":       { "type": "string",  "description": "Nautical twilight end (HH:MM:SS).", "example": "22:04:19" },
-          "astronomical_twilight_begin": { "type": "string",  "description": "Astronomical twilight start — sun 18° below horizon (HH:MM:SS).", "example": "04:29:28" },
-          "astronomical_twilight_end":   { "type": "string",  "description": "Astronomical twilight end (HH:MM:SS).", "example": "22:53:52" },
-          "sunrise_azimuth_deg":         { "type": "number",  "description": "Sunrise azimuth from north, clockwise (°). 0 when no sunrise.", "example": 73.14 },
-          "sunset_azimuth_deg":          { "type": "number",  "description": "Sunset azimuth from north, clockwise (°). 0 when no sunset.", "example": 286.86 },
-          "noon_elevation_deg":          { "type": "number",  "description": "Sun elevation at solar noon (°). Negative during polar night.", "example": 54.22 },
-          "noon_azimuth_deg":            { "type": "number",  "description": "Sun azimuth at solar noon — 180 (south) or 0 (north).", "example": 180 },
-          "polar_day":                   { "type": "boolean", "description": "True when the sun does not set (midnight sun).", "example": false },
-          "polar_night":                 { "type": "boolean", "description": "True when the sun does not rise.", "example": false },
-          "current_azimuth_deg":         { "type": "number",  "description": "Sun azimuth at the queried timestamp, clockwise from north (°).", "example": 178.85 },
-          "current_elevation_deg":       { "type": "number",  "description": "Sun elevation at the queried timestamp (°). Negative when below horizon.", "example": 57.75 },
-          "current_time_local":          { "type": "string",  "description": "Local time at the queried timestamp (HH:MM:SS) in the requested timezone.", "example": "13:56:57" }
+          "latitude":               { "type": "number",  "description": "Observer latitude (degrees).", "example": 48.86 },
+          "longitude":              { "type": "number",  "description": "Observer longitude (degrees).", "example": 2.35 },
+          "timezone":               { "type": "string",  "description": "IANA timezone of the observer's location.", "example": "Europe/Paris" },
+          "timestamp":              { "type": "integer", "description": "Unix timestamp of UTC midnight of the target local date.", "example": 1745107200 },
+          "date":                   { "type": "string",  "description": "Target date (YYYY-MM-DD) in the observer's timezone.", "example": "2026-04-20" },
+          "observer_elevation_m":   { "type": "number",  "description": "Observer altitude used in the NREL SPA computation (metres).", "example": 0 },
+          "observer_pressure_hpa":  { "type": "number",  "description": "Atmospheric pressure used in the NREL SPA computation (hPa).", "example": 1013.25 },
+          "observer_temperature_c": { "type": "number",  "description": "Air temperature used in the NREL SPA computation (°C).", "example": 12 },
+          "delta_t_s":              { "type": "number",  "description": "ΔT value used in the NREL SPA computation (seconds). Either provided by the caller or auto-estimated.", "example": 69.2 },
+          "sunrise":                { "type": "string",  "description": "Sunrise time (HH:MM:SS) in the observer's timezone. Empty string during polar night.", "example": "06:31:02" },
+          "sunset":                 { "type": "string",  "description": "Sunset time (HH:MM:SS). Empty string during polar day.", "example": "20:52:18" },
+          "solar_noon":             { "type": "string",  "description": "Solar noon — time of maximum sun elevation (HH:MM:SS).", "example": "13:41:40" },
+          "day_length":             { "type": "string",  "description": "Day length (HH:MM:SS). '00:00:00' for polar night, '24:00:00' for polar day.", "example": "14:21:16" },
+          "civil_twilight_begin":   { "type": "string",  "description": "Civil twilight start — sun 6° below horizon (HH:MM:SS).", "example": "05:58:41" },
+          "civil_twilight_end":     { "type": "string",  "description": "Civil twilight end (HH:MM:SS).", "example": "21:24:39" },
+          "nautical_twilight_begin":{ "type": "string",  "description": "Nautical twilight start — sun 12° below horizon (HH:MM:SS).", "example": "05:19:01" },
+          "nautical_twilight_end":  { "type": "string",  "description": "Nautical twilight end (HH:MM:SS).", "example": "22:04:19" },
+          "astronomical_twilight_begin": { "type": "string", "description": "Astronomical twilight start — sun 18° below horizon (HH:MM:SS).", "example": "04:29:28" },
+          "astronomical_twilight_end":   { "type": "string", "description": "Astronomical twilight end (HH:MM:SS).", "example": "22:53:52" },
+          "sunrise_azimuth_deg":    { "type": "number",  "description": "Sun azimuth at sunrise, clockwise from north (°). 0 when no sunrise.", "example": 73.14 },
+          "sunset_azimuth_deg":     { "type": "number",  "description": "Sun azimuth at sunset, clockwise from north (°). 0 when no sunset.", "example": 286.86 },
+          "noon_elevation_deg":     { "type": "number",  "description": "Sun elevation above horizon at solar noon (°). Negative during polar night.", "example": 54.22 },
+          "noon_azimuth_deg":       { "type": "number",  "description": "Sun azimuth at solar noon — 180° (south) or 0° (north).", "example": 180 },
+          "polar_day":              { "type": "boolean", "description": "True when the sun does not set (midnight sun).", "example": false },
+          "polar_night":            { "type": "boolean", "description": "True when the sun does not rise.", "example": false },
+          "current_azimuth_deg":    { "type": "number",  "description": "Sun azimuth at the queried timestamp (°), clockwise from north.", "example": 178.85 },
+          "current_elevation_deg":  { "type": "number",  "description": "Sun elevation at the queried timestamp (°). Negative when below horizon.", "example": 57.75 },
+          "current_time_local":     { "type": "string",  "description": "Local time at the queried timestamp (HH:MM:SS) in the observer's timezone.", "example": "13:56:57" }
         }
       },
       "ErrorResponse": {
