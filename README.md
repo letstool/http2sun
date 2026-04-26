@@ -8,6 +8,14 @@ The binary embeds a static web UI and an OpenAPI specification — no runtime fi
 
 ---
 
+## Screenshot 
+
+![http2sun Web UI](docs/screenshot.png)
+
+> The embedded web UI (served at `/`) provides an interactive form to issue SUN position queries and inspect responses directly in the browser. It supports **dark and light themes** and is fully translated into **15 languages**.
+
+---
+
 ## Disclaimer
 
 This project is released **as-is**, for demonstration or reference purposes.
@@ -15,9 +23,11 @@ It is **not maintained**: no bug fixes, dependency updates, or new features are 
 
 ---
 
-## License
+This project is licensed under the **MIT License** — see the [`LICENSE`](LICENSE) file for details.
 
-MIT License — see [`LICENSE`](LICENSE) for details.
+```
+MIT License — Copyright (c) 2026 letstool
+```
 
 ---
 
