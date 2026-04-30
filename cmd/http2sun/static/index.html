@@ -5,113 +5,579 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/png" sizes="512x512" href="/favicon.png">
 <title>Solar Data — http2sun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0e14;--surface:#0f1520;--border:#1e2d45;--border-hi:#2a4060;--accent:#00d4ff;--accent2:#0090cc;--accent-dim:#003a52;--text:#c8d8e8;--text-dim:#4a6480;--text-mid:#7a9ab8;--ok:#00b87a;--ok-dim:#003d2a;--warn:#ffb340;--warn-dim:#3d2a00;--err:#ff4e6a;--err-dim:#3d0010;--grid-a:rgba(30,45,69,.30);--grid-b:rgba(30,45,69,.15);--radial:rgba(0,180,255,.07);--panel-tint:rgba(0,212,255,.04);--select-opt-bg:#0f1520;--raw-bg:#070b10;--focus-ring:#00d4ff;--mono:'Courier New','Lucida Console',monospace;--sans:system-ui,-apple-system,'Segoe UI',Arial,sans-serif}
-[data-theme=light]{--bg:#eef3f9;--surface:#ffffff;--border:#c8d8ec;--border-hi:#a0bcd8;--accent:#0070a0;--accent2:#005278;--accent-dim:#d4eaf8;--text:#152030;--text-dim:#7898b8;--text-mid:#3a6080;--ok:#006e48;--ok-dim:#d0f0e4;--warn:#8c5200;--warn-dim:#fff0d0;--err:#b0002a;--err-dim:#fde8ef;--grid-a:rgba(150,190,225,.28);--grid-b:rgba(150,190,225,.14);--radial:rgba(0,120,180,.06);--panel-tint:rgba(0,112,160,.04);--select-opt-bg:#ffffff;--raw-bg:#f4f8fc;--focus-ring:#005278}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-.skip-link{position:absolute;top:-100px;left:16px;z-index:9999;background:var(--accent);color:var(--bg);font-family:var(--mono);font-size:.85rem;font-weight:700;padding:10px 18px;border-radius:0 0 6px 6px;text-decoration:none;letter-spacing:.08em;transition:top .2s}
-.skip-link:focus{top:0;outline:3px solid var(--focus-ring);outline-offset:2px}
-:focus-visible{outline:2px solid var(--focus-ring);outline-offset:3px;border-radius:3px}
-:focus:not(:focus-visible){outline:none}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column;align-items:center}
-body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(var(--grid-a) 1px,transparent 1px),linear-gradient(90deg,var(--grid-a) 1px,transparent 1px),linear-gradient(var(--grid-b) 1px,transparent 1px),linear-gradient(90deg,var(--grid-b) 1px,transparent 1px);background-size:80px 80px,80px 80px,20px 20px,20px 20px}
-body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 80% 55% at 50% 10%,var(--radial),transparent 70%)}
-.shell{position:relative;z-index:1;width:100%;max-width:780px;padding:0 16px 60px}
-header{display:flex;align-items:center;justify-content:space-between;padding:26px 0 18px;gap:12px}
-.brand{display:flex;align-items:center;gap:14px}
-.brand-icon{width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;box-shadow:0 0 22px color-mix(in srgb,var(--accent) 35%,transparent)}
-.brand-name{font-family:var(--mono);font-size:1.3rem;font-weight:700;letter-spacing:-.02em;color:var(--accent)}
-.brand-tagline{font-size:.70rem;color:var(--text-dim);letter-spacing:.07em;margin-top:2px}
-.header-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.lang-select,.theme-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-mid);border-radius:6px;padding:6px 10px;font-family:var(--mono);font-size:.78rem;cursor:pointer;transition:border-color .2s,color .2s}
-.lang-select option{background:var(--select-opt-bg)}
-.lang-select:hover,.theme-btn:hover{border-color:var(--accent);color:var(--accent)}
-.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;background-image:linear-gradient(135deg,var(--panel-tint),transparent);transition:border-color .25s}
-.panel:hover{border-color:var(--border-hi)}
-.panel+.panel{margin-top:14px}
-.panel-title{font-family:var(--mono);font-size:.70rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-bottom:14px;display:flex;align-items:center;gap:8px}
-.panel-title::before{content:'';display:inline-block;width:3px;height:11px;background:var(--accent);border-radius:2px}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.field{display:flex;flex-direction:column;gap:5px}
-.field label{font-family:var(--mono);font-size:.68rem;font-weight:600;letter-spacing:.09em;color:var(--text-dim);text-transform:uppercase}
-.field label .req{color:var(--accent);margin-left:2px}
-.field input,.field select{background:var(--raw-bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:9px 12px;font-family:var(--mono);font-size:.87rem;transition:border-color .2s,box-shadow .2s;appearance:none;width:100%}
-.field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a9ab8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:30px}
-.field input:hover,.field select:hover{border-color:var(--border-hi)}
-.field input:focus,.field select:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent)}
-.field select option{background:var(--select-opt-bg)}
-.submit-row{display:flex;justify-content:flex-end;margin-top:14px}
-.btn-submit{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#08090c;border:none;border-radius:8px;padding:11px 26px;font-family:var(--mono);font-size:.88rem;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:opacity .2s,transform .1s,box-shadow .2s;box-shadow:0 0 18px color-mix(in srgb,var(--accent) 32%,transparent)}
-.btn-submit:hover{opacity:.9;box-shadow:0 0 32px color-mix(in srgb,var(--accent) 48%,transparent)}
-.btn-submit:active{transform:scale(.98)}
-.btn-submit:disabled{opacity:.4;cursor:not-allowed}
-.status-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.72rem;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:5px;border:1px solid}
-.status-ok{color:var(--ok);background:var(--ok-dim);border-color:var(--ok)}
-.status-err{color:var(--err);background:var(--err-dim);border-color:var(--err)}
-.result-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
-.result-meta{font-family:var(--mono);font-size:.75rem;color:var(--text-mid)}
-.arc-wrap{margin-bottom:18px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--raw-bg);padding:8px 4px 4px}
-.data-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:9px;margin-bottom:14px}
-.data-card{background:var(--raw-bg);border:1px solid var(--border);border-radius:8px;padding:11px 13px;display:flex;flex-direction:column;gap:3px}
-.dcl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text-dim)}
-.dcv{font-family:var(--mono);font-size:1.0rem;font-weight:700;color:var(--accent)}
-.dcv.na{color:var(--text-dim);font-size:.82rem}
-.tl-wrap{margin-bottom:14px}
-.tl-lbl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px}
-.tl-bar{position:relative;height:28px;border-radius:6px;overflow:hidden;background:#020304;border:1px solid var(--border)}
-.tls{position:absolute;top:0;height:100%}
-.tl-night{background:#02040a}
-.tl-astro{background:#0b1228}
-.tl-naut{background:#132040}
-.tl-civil{background:#1c3060}
-.tl-day{background:linear-gradient(90deg,#ff8800 0%,#ffcc00 50%,#ff8800 100%)}
-.tl-ticks{display:flex;justify-content:space-between;margin-top:3px}
-.tl-tick{font-family:var(--mono);font-size:.58rem;color:var(--text-dim)}
-.polar-banner{background:var(--warn-dim);border:1px solid var(--warn);border-radius:8px;padding:11px 15px;margin-bottom:12px;font-family:var(--mono);font-size:.82rem;color:var(--warn);display:flex;align-items:center;gap:10px}
-.error-panel{background:var(--err-dim);border:1px solid var(--err);border-radius:10px;padding:16px 18px;font-family:var(--mono);font-size:.84rem;color:var(--err);display:flex;align-items:flex-start;gap:10px}
-.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loading-row{display:flex;align-items:center;gap:10px;color:var(--text-dim);font-size:.84rem}
-.raw-toggle{background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:var(--mono);font-size:.68rem;cursor:pointer;letter-spacing:.06em;transition:border-color .2s,color .2s}
-.raw-toggle:hover{border-color:var(--accent);color:var(--accent)}
-.raw-block{background:var(--raw-bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:var(--mono);font-size:.76rem;line-height:1.6;color:var(--text-mid);overflow-x:auto;max-height:340px;overflow-y:auto;margin-top:8px;white-space:pre}
-.json-key{color:var(--text-mid)}.json-str{color:#a0d878}.json-num{color:var(--accent)}.json-bool{color:#88aaff}.json-null{color:var(--text-dim)}
-footer{color:var(--text-dim);font-size:.68rem;font-family:var(--mono);text-align:center;margin-top:16px;letter-spacing:.05em}
-footer a{color:var(--text-mid);text-decoration:none}
-footer a:hover{color:var(--accent)}
-[hidden]{display:none!important}
-.sect-title{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin:14px 0 8px;padding-left:2px}
-@media(max-width:520px){.form-grid{grid-template-columns:1fr}.data-grid{grid-template-columns:1fr 1fr}header{flex-direction:column;align-items:flex-start}}
+/* ══════════════════════════════════════════════════════════════════
+   MATERIAL DESIGN 3 — DESIGN TOKENS
+══════════════════════════════════════════════════════════════════ */
+:root {
+  --md-primary:               #9ECAFF;
+  --md-on-primary:            #003258;
+  --md-primary-container:     #00497D;
+  --md-on-primary-container:  #D1E4FF;
+  --md-secondary:             #BBC8DA;
+  --md-on-secondary:          #263141;
+  --md-secondary-container:   #3C4758;
+  --md-on-secondary-container:#D7E3F7;
+  --md-tertiary:              #F6BE54;
+  --md-on-tertiary:           #3F2E00;
+  --md-tertiary-container:    #5A4300;
+  --md-on-tertiary-container: #FFDEA3;
+  --md-error:                 #FFB4AB;
+  --md-on-error:              #690005;
+  --md-error-container:       #93000A;
+  --md-on-error-container:    #FFDAD6;
+  --md-success:               #57D9A3;
+  --md-success-container:     #00513A;
+  --md-on-success-container:  #75F7BC;
+  --md-warning:               #FFB74D;
+  --md-warning-container:     #5A3900;
+  --md-on-warning-container:  #FFD9A0;
+  --md-background:               #111318;
+  --md-on-background:            #E2E2E6;
+  --md-surface:                  #111318;
+  --md-on-surface:               #E2E2E6;
+  --md-surface-variant:          #43474E;
+  --md-on-surface-variant:       #C3C7CF;
+  --md-surface-container-lowest: #0C0E11;
+  --md-surface-container-low:    #1A1C1E;
+  --md-surface-container:        #1E2025;
+  --md-surface-container-high:   #28292F;
+  --md-surface-container-highest:#33363F;
+  --md-outline:         #8D9199;
+  --md-outline-variant: #43474E;
+  --md-shape-xs:   4px;
+  --md-shape-sm:   8px;
+  --md-shape-md:   12px;
+  --md-shape-full: 100px;
+  --md-elev-1: 0 1px 2px rgba(0,0,0,.3),  0 1px 3px 1px rgba(0,0,0,.15);
+  --md-elev-2: 0 1px 2px rgba(0,0,0,.3),  0 2px 6px 2px rgba(0,0,0,.15);
+  --md-elev-3: 0 1px 3px rgba(0,0,0,.3),  0 4px 8px 3px rgba(0,0,0,.15);
+  --md-state-surface-hover: rgba(226,226,230,0.08);
+  --md-font:      'Roboto', sans-serif;
+  --md-font-mono: 'Roboto Mono', 'Courier New', monospace;
+  /* Legacy compat — used verbatim in JS-generated HTML */
+  --bg:            var(--md-background);
+  --surface:       var(--md-surface-container);
+  --border:        var(--md-outline-variant);
+  --border-hi:     var(--md-outline);
+  --accent:        var(--md-primary);
+  --accent2:       var(--md-primary);
+  --accent-dim:    var(--md-primary-container);
+  --text:          var(--md-on-surface);
+  --text-dim:      var(--md-on-surface-variant);
+  --text-mid:      var(--md-on-surface-variant);
+  --ok:            var(--md-success);
+  --ok-dim:        var(--md-success-container);
+  --warn:          var(--md-warning);
+  --warn-dim:      var(--md-warning-container);
+  --err:           var(--md-error);
+  --err-dim:       var(--md-error-container);
+  --panel-tint:    rgba(158,202,255,0.04);
+  --select-opt-bg: var(--md-surface-container-high);
+  --raw-bg:        var(--md-surface-container-lowest);
+  --focus-ring:    var(--md-primary);
+  --mono:          var(--md-font-mono);
+  --sans:          var(--md-font);
+}
+[data-theme="light"] {
+  --md-primary:               #0061A4;
+  --md-on-primary:            #FFFFFF;
+  --md-primary-container:     #D1E4FF;
+  --md-on-primary-container:  #001D36;
+  --md-secondary:             #535F70;
+  --md-on-secondary:          #FFFFFF;
+  --md-secondary-container:   #D7E3F7;
+  --md-on-secondary-container:#101C2B;
+  --md-tertiary:              #7B5800;
+  --md-on-tertiary:           #FFFFFF;
+  --md-tertiary-container:    #FFDEA3;
+  --md-on-tertiary-container: #261900;
+  --md-error:                 #BA1A1A;
+  --md-on-error:              #FFFFFF;
+  --md-error-container:       #FFDAD6;
+  --md-on-error-container:    #410002;
+  --md-success:               #006C4C;
+  --md-success-container:     #8AF5C7;
+  --md-on-success-container:  #002115;
+  --md-warning:               #7B5000;
+  --md-warning-container:     #FFDDB3;
+  --md-on-warning-container:  #271900;
+  --md-background:               #FAFCFF;
+  --md-on-background:            #1A1C1E;
+  --md-surface:                  #F8F9FF;
+  --md-on-surface:               #1A1C1E;
+  --md-surface-variant:          #DFE2EB;
+  --md-on-surface-variant:       #43474E;
+  --md-surface-container-lowest: #FFFFFF;
+  --md-surface-container-low:    #F1F3FA;
+  --md-surface-container:        #EBEDF4;
+  --md-surface-container-high:   #E5E7EE;
+  --md-surface-container-highest:#DFE2E8;
+  --md-outline:         #73777F;
+  --md-outline-variant: #C3C7CF;
+  --md-elev-1: 0 1px 2px rgba(0,0,0,.12), 0 1px 3px 1px rgba(0,0,0,.06);
+  --md-elev-2: 0 1px 2px rgba(0,0,0,.12), 0 2px 6px 2px rgba(0,0,0,.06);
+  --md-elev-3: 0 1px 3px rgba(0,0,0,.12), 0 4px 8px 3px rgba(0,0,0,.06);
+  --md-state-surface-hover: rgba(26,28,30,0.08);
+  --panel-tint: rgba(0,97,164,0.04);
+  --raw-bg: var(--md-surface-container-lowest);
+  --select-opt-bg: var(--md-surface-container-low);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BASE
+══════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+.skip-link {
+  position: absolute; top: -100px; left: 16px; z-index: 9999;
+  background: var(--md-primary); color: var(--md-on-primary);
+  font-family: var(--md-font); font-size: .875rem; font-weight: 500;
+  padding: 10px 24px; border-radius: var(--md-shape-full);
+  text-decoration: none; transition: top .2s;
+}
+.skip-link:focus { top: 8px; }
+:focus-visible { outline: 3px solid var(--md-primary); outline-offset: 2px; border-radius: var(--md-shape-xs); }
+:focus:not(:focus-visible) { outline: none; }
+
+body {
+  background: var(--md-background); color: var(--md-on-background);
+  font-family: var(--md-font); min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  transition: background .3s, color .3s;
+}
+
+/* RTL */
+[dir="rtl"] .panel-title::before { margin-right: 0; margin-left: 8px; }
+[dir="rtl"] .header-controls     { flex-direction: row-reverse; }
+[dir="rtl"] .submit-row          { justify-content: flex-start; }
+[dir="rtl"] .sect-title::after   { display: none; }
+[dir="rtl"] .sect-title::before  { content: ''; flex: 1; height: 1px; background: var(--md-outline-variant); }
+[dir="rtl"] select                { background-position: left 12px center; padding-left: 32px; padding-right: 12px; }
+[hidden] { display: none !important; }
+
+/* ══════════════════════════════════════════════════════════════════
+   SHELL
+══════════════════════════════════════════════════════════════════ */
+.shell {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 800px;
+  padding: 0 16px 80px;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TOP APP BAR
+══════════════════════════════════════════════════════════════════ */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 0 16px; gap: 12px;
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+
+/* MD3 Brand icon — filled tonal container with sun */
+.brand-icon {
+  width: 44px; height: 44px; border-radius: var(--md-shape-sm);
+  background: var(--md-tertiary-container);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; flex-shrink: 0;
+  box-shadow: var(--md-elev-1);
+  transition: background .3s;
+}
+/* MD3 Title Large */
+.brand-name {
+  font-family: var(--md-font); font-size: 1.375rem; font-weight: 400;
+  color: var(--md-on-surface); transition: color .3s;
+}
+/* MD3 Body Small */
+.brand-tagline {
+  font-family: var(--md-font); font-size: .75rem; font-weight: 400;
+  color: var(--md-on-surface-variant); letter-spacing: .025em;
+  margin-top: 2px; transition: color .3s;
+}
+
+.header-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ── Theme Toggle — MD3 Filled Tonal Button ── */
+.theme-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--md-surface-container-high); border: none;
+  border-radius: var(--md-shape-full); padding: 8px 16px 8px 12px;
+  color: var(--md-on-surface-variant);
+  font-family: var(--md-font); font-size: .6875rem; font-weight: 500;
+  cursor: pointer; transition: background .2s, color .2s;
+  position: relative; overflow: hidden; white-space: nowrap;
+}
+.theme-btn::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: var(--md-state-surface-hover); opacity: 0; transition: opacity .2s;
+}
+.theme-btn:hover::after, .theme-btn:focus-visible::after { opacity: 1; }
+.theme-btn:hover { color: var(--md-on-surface); }
+.theme-track { width: 32px; height: 16px; background: var(--md-outline); border-radius: var(--md-shape-full); position: relative; flex-shrink: 0; transition: background .3s; }
+.theme-thumb { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--md-surface-container-highest); transition: transform .3s; }
+[data-theme="light"] .theme-track { background: var(--md-primary); }
+[data-theme="light"] .theme-thumb { background: var(--md-on-primary); transform: translateX(16px); }
+
+/* ── Custom Language Dropdown ── */
+.lang-wrap { position: relative; }
+#lsel { display: none; }
+.lang-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--md-surface-container-high); border: 1px solid var(--md-outline);
+  border-radius: var(--md-shape-xs); color: var(--md-on-surface-variant);
+  font-family: var(--md-font); font-size: .875rem; padding: 8px 12px;
+  cursor: pointer; outline: none; min-height: 40px;
+  transition: border-color .2s, color .2s; position: relative; overflow: hidden; white-space: nowrap;
+}
+.lang-btn::after { content: ''; position: absolute; inset: 0; background: var(--md-state-surface-hover); opacity: 0; transition: opacity .2s; }
+.lang-btn:hover::after, .lang-btn.open::after { opacity: 1; }
+.lang-btn:hover, .lang-btn.open { border-color: var(--md-on-surface); color: var(--md-on-surface); }
+.lang-btn:focus-visible { border-color: var(--md-primary); border-width: 2px; outline: none; }
+.lang-flag-icon { font-size: 1.1rem; line-height: 1; flex-shrink: 0; }
+.lang-current-name { font-size: .8125rem; }
+.lang-chevron-icon { flex-shrink: 0; color: var(--md-on-surface-variant); transition: transform .2s; }
+.lang-btn.open .lang-chevron-icon { transform: rotate(180deg); }
+.lang-options {
+  position: absolute; top: calc(100% + 4px); right: 0;
+  background: var(--md-surface-container-high); border-radius: var(--md-shape-sm);
+  box-shadow: var(--md-elev-3); min-width: 220px; max-height: 320px; overflow-y: auto;
+  z-index: 1000; padding: 4px 0; list-style: none;
+  transform-origin: top right; animation: menuOpen .15s ease-out;
+}
+@keyframes menuOpen { from{opacity:0;transform:scale(.95) translateY(-4px)} to{opacity:1;transform:scale(1) translateY(0)} }
+.lang-options::-webkit-scrollbar { width: 4px; }
+.lang-options::-webkit-scrollbar-thumb { background: var(--md-outline-variant); border-radius: 2px; }
+.lang-option {
+  display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+  cursor: pointer; font-family: var(--md-font); font-size: .875rem; color: var(--md-on-surface);
+  position: relative; user-select: none;
+}
+.lang-option::after { content: ''; position: absolute; inset: 0; background: var(--md-on-surface); opacity: 0; transition: opacity .12s; }
+.lang-option:hover::after { opacity: .08; }
+.lang-option[aria-selected="true"] { background: var(--md-primary-container); color: var(--md-on-primary-container); }
+.lang-option[aria-selected="true"]::after { display: none; }
+.lang-option .lang-flag-icon { font-size: 1.15rem; }
+
+/* ══════════════════════════════════════════════════════════════════
+   MD3 ELEVATED CARD (Panel)
+══════════════════════════════════════════════════════════════════ */
+.panel {
+  background: var(--md-surface-container);
+  border: none; border-radius: var(--md-shape-md);
+  padding: 24px; overflow: hidden;
+  box-shadow: var(--md-elev-1);
+  transition: background .3s;
+}
+.panel + .panel { margin-top: 16px; }
+
+/* MD3 Title Medium for panel headers */
+.panel-title {
+  font-family: var(--md-font); font-size: 1rem; font-weight: 500;
+  letter-spacing: .009em; color: var(--md-on-surface);
+  margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+}
+.panel-title::before {
+  content: ''; display: inline-block; width: 3px; height: 20px;
+  background: var(--md-primary); border-radius: var(--md-shape-xs); flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FORM — MD3 Outlined Fields
+══════════════════════════════════════════════════════════════════ */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.field label {
+  font-family: var(--md-font); font-size: .75rem; font-weight: 500;
+  letter-spacing: .05em; text-transform: uppercase;
+  color: var(--md-on-surface-variant); cursor: pointer;
+}
+.field label .req { color: var(--md-primary); margin-left: 2px; }
+
+.field input, .field select {
+  background: transparent; border: 1px solid var(--md-outline);
+  border-radius: var(--md-shape-xs); color: var(--md-on-surface);
+  font-family: var(--md-font-mono); font-size: .875rem;
+  padding: 12px 16px; outline: none; width: 100%;
+  appearance: none; -webkit-appearance: none;
+  transition: border-color .2s; min-height: 48px;
+}
+.field input:hover:not(:focus), .field select:hover:not(:focus) { border-color: var(--md-on-surface); }
+.field input:focus, .field select:focus { border-color: var(--md-primary); border-width: 2px; padding: 11px 15px; outline: none; }
+.field input::placeholder { color: var(--md-on-surface-variant); opacity: .7; }
+.field select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238D9199' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; cursor: pointer;
+}
+[data-theme="light"] .field select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2373777F' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.field select option { background: var(--md-surface-container-high); color: var(--md-on-surface); }
+.field select optgroup { background: var(--md-surface-container-high); color: var(--md-on-surface-variant); }
+
+/* ── Timestamp row with "Now" button ── */
+.ts-row { display: flex; gap: 8px; }
+.ts-row input { flex: 1; min-width: 0; }
+/* MD3 Outlined Button — "Now" */
+.btn-now {
+  background: transparent; border: 1px solid var(--md-outline);
+  border-radius: var(--md-shape-xs); color: var(--md-primary);
+  font-family: var(--md-font); font-size: .875rem; font-weight: 500;
+  padding: 0 16px; cursor: pointer; white-space: nowrap;
+  transition: background .2s, border-color .2s; position: relative; overflow: hidden;
+  min-height: 48px;
+}
+.btn-now::after { content: ''; position: absolute; inset: 0; background: var(--md-primary); opacity: 0; transition: opacity .2s; }
+.btn-now:hover::after { opacity: .08; }
+.btn-now:hover { border-color: var(--md-primary); }
+
+/* ── Advanced params — MD3 Expansion Panel ── */
+.adv-details {
+  border: 1px solid var(--md-outline-variant); border-radius: var(--md-shape-sm);
+  overflow: hidden; margin-top: 16px;
+}
+.adv-summary {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; cursor: pointer;
+  font-family: var(--md-font); font-size: .8125rem; font-weight: 500;
+  color: var(--md-on-surface-variant); text-transform: uppercase;
+  letter-spacing: .05em;
+  background: var(--md-surface-container-high);
+  list-style: none; user-select: none;
+  transition: background .2s; position: relative; overflow: hidden;
+}
+.adv-summary::after { content: ''; position: absolute; inset: 0; background: var(--md-on-surface); opacity: 0; transition: opacity .2s; }
+.adv-summary:hover::after { opacity: .08; }
+.adv-summary::-webkit-details-marker, .adv-summary::marker { display: none; }
+.adv-arrow { font-size: .6rem; flex-shrink: 0; transition: transform .2s; color: var(--md-on-surface-variant); }
+details[open] > .adv-summary .adv-arrow { transform: rotate(90deg); }
+.adv-hint { font-family: var(--md-font); font-size: .75rem; color: var(--md-on-surface-variant); margin-top: 8px; line-height: 1.5; }
+
+.adv-body { padding: 16px; border-top: 1px solid var(--md-outline-variant); background: transparent; }
+
+/* ── Submit row — MD3 Filled Button ── */
+.submit-row { display: flex; justify-content: flex-end; margin-top: 20px; }
+.btn-submit {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--md-primary); color: var(--md-on-primary); border: none;
+  font-family: var(--md-font); font-size: .875rem; font-weight: 500; letter-spacing: .006em;
+  padding: 10px 28px; border-radius: var(--md-shape-full); cursor: pointer;
+  position: relative; overflow: hidden; transition: box-shadow .2s;
+  min-height: 40px; box-shadow: var(--md-elev-1);
+}
+.btn-submit::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0); transition: background .2s; }
+.btn-submit:hover::after { background: rgba(255,255,255,.08); }
+.btn-submit:hover { box-shadow: var(--md-elev-2); }
+.btn-submit:active { transform: scale(.98); box-shadow: none; }
+.btn-submit:disabled { opacity: .38; cursor: not-allowed; box-shadow: none; }
+.btn-submit:focus-visible { outline: 3px solid var(--md-primary); outline-offset: 3px; }
+
+/* ══════════════════════════════════════════════════════════════════
+   RESULTS COMPONENTS
+══════════════════════════════════════════════════════════════════ */
+
+/* Result header */
+.result-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 8px;
+}
+.result-meta { font-family: var(--md-font-mono); font-size: .8125rem; color: var(--md-on-surface-variant); }
+
+/* MD3 Status badge */
+.status-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--md-font); font-size: .6875rem; font-weight: 500;
+  letter-spacing: .05em; text-transform: uppercase;
+  padding: 4px 12px; border-radius: var(--md-shape-sm); border: none;
+}
+.status-ok  { background: var(--md-success-container); color: var(--md-on-success-container); }
+.status-err { background: var(--md-error-container);   color: var(--md-on-error-container); }
+
+/* ── Solar Arc wrapper ── */
+.arc-wrap {
+  margin-bottom: 20px; border: 1px solid var(--md-outline-variant);
+  border-radius: var(--md-shape-sm); overflow: hidden;
+  background: var(--md-surface-container-lowest);
+  padding: 8px 4px 4px; transition: background .3s, border-color .3s;
+}
+
+/* ── Data cards grid — MD3 Filled Tonal Cards ── */
+.data-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.data-card {
+  background: var(--md-surface-container-high);
+  border: none; border-radius: var(--md-shape-sm);
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;
+  transition: background .3s;
+}
+/* MD3 Label Small */
+.dcl {
+  font-family: var(--md-font); font-size: .6875rem; font-weight: 500;
+  letter-spacing: .05em; text-transform: uppercase;
+  color: var(--md-on-surface-variant);
+}
+/* MD3 Headline Small for value */
+.dcv {
+  font-family: var(--md-font-mono); font-size: 1rem; font-weight: 500;
+  color: var(--md-primary); letter-spacing: .02em;
+}
+.dcv.na { color: var(--md-on-surface-variant); font-size: .875rem; font-weight: 400; }
+
+/* ── Section titles ── */
+.sect-title {
+  font-family: var(--md-font); font-size: .75rem; font-weight: 500;
+  letter-spacing: .05em; text-transform: uppercase;
+  color: var(--md-primary); margin: 16px 0 10px;
+  display: flex; align-items: center; gap: 10px;
+}
+.sect-title::after { content: ''; flex: 1; height: 1px; background: var(--md-outline-variant); }
+
+/* ── Timeline bar ── */
+.tl-wrap { margin-bottom: 16px; }
+.tl-lbl {
+  font-family: var(--md-font); font-size: .6875rem; font-weight: 500;
+  letter-spacing: .05em; text-transform: uppercase;
+  color: var(--md-on-surface-variant); margin-bottom: 6px;
+}
+.tl-bar {
+  position: relative; height: 28px; border-radius: var(--md-shape-xs);
+  overflow: hidden; background: #020304; border: 1px solid var(--md-outline-variant);
+}
+.tls { position: absolute; top: 0; height: 100%; }
+.tl-night { background: #02040a; }
+.tl-astro { background: #0b1228; }
+.tl-naut  { background: #132040; }
+.tl-civil { background: #1c3060; }
+.tl-day   { background: linear-gradient(90deg, #ff8800 0%, #ffcc00 50%, #ff8800 100%); }
+.tl-ticks { display: flex; justify-content: space-between; margin-top: 3px; }
+.tl-tick  { font-family: var(--md-font-mono); font-size: .625rem; color: var(--md-on-surface-variant); }
+
+/* ── Polar banner — MD3 Warning Container ── */
+.polar-banner {
+  background: var(--md-warning-container); border-radius: var(--md-shape-sm);
+  padding: 12px 16px; margin-bottom: 16px;
+  font-family: var(--md-font); font-size: .875rem; font-weight: 400;
+  color: var(--md-on-warning-container);
+  display: flex; align-items: center; gap: 10px;
+  border: none;
+}
+
+/* ── Error panel — MD3 Error Container ── */
+.error-panel {
+  background: var(--md-error-container); border-radius: var(--md-shape-md);
+  padding: 16px 20px; border: none;
+  font-family: var(--md-font); font-size: .875rem;
+  color: var(--md-on-error-container);
+  display: flex; align-items: flex-start; gap: 10px;
+}
+
+/* ── Loading ── */
+.spinner {
+  width: 18px; height: 18px; border: 2px solid var(--md-outline-variant);
+  border-top-color: var(--md-primary); border-radius: 50%;
+  animation: spin .7s linear infinite; display: inline-block; flex-shrink: 0;
+}
+.loading-row { display: flex; align-items: center; gap: 10px; font-family: var(--md-font); font-size: .875rem; color: var(--md-on-surface-variant); }
+
+/* ── Raw JSON toggle — MD3 Outlined Button ── */
+.raw-toggle {
+  background: transparent; border: 1px solid var(--md-outline);
+  border-radius: var(--md-shape-sm); color: var(--md-primary);
+  font-family: var(--md-font); font-size: .75rem; font-weight: 500;
+  letter-spacing: .005em; padding: 5px 14px; cursor: pointer;
+  transition: background .2s, border-color .2s;
+  position: relative; overflow: hidden;
+}
+.raw-toggle::after { content: ''; position: absolute; inset: 0; background: var(--md-primary); opacity: 0; transition: opacity .2s; }
+.raw-toggle:hover::after { opacity: .08; }
+.raw-toggle:hover { border-color: var(--md-primary); }
+
+/* ── Raw JSON block ── */
+.raw-block {
+  background: var(--md-surface-container-lowest);
+  border: 1px solid var(--md-outline-variant); border-radius: var(--md-shape-sm);
+  padding: 16px; font-family: var(--md-font-mono); font-size: .8rem;
+  line-height: 1.6; color: var(--md-on-surface-variant);
+  overflow-x: auto; max-height: 340px; overflow-y: auto; margin-top: 10px;
+  white-space: pre; transition: background .3s, border-color .3s;
+}
+/* JSON syntax colors */
+.json-key  { color: var(--md-on-surface-variant); }
+.json-str  { color: #a8d8a8; }
+.json-num  { color: var(--md-primary); }
+.json-bool { color: var(--md-tertiary); }
+.json-null { color: var(--md-on-surface-variant); opacity: .6; }
+
+/* ══════════════════════════════════════════════════════════════════
+   FOOTER
+══════════════════════════════════════════════════════════════════ */
+footer {
+  color: var(--md-on-surface-variant); font-size: .75rem;
+  font-family: var(--md-font); text-align: center;
+  margin-top: 16px; letter-spacing: .03em; opacity: .6;
+}
+footer a { color: var(--md-on-surface-variant); text-decoration: none; }
+footer a:hover { color: var(--md-primary); }
+
+/* ══════════════════════════════════════════════════════════════════
+   UTILITIES / RESPONSIVE
+══════════════════════════════════════════════════════════════════ */
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms!important; transition-duration: .01ms!important; } }
+@media (max-width: 520px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .data-grid { grid-template-columns: 1fr 1fr; }
+  header { flex-direction: column; align-items: flex-start; }
+}
 </style>
 </head>
 <body>
 <a href="#qform" class="skip-link">Skip to form</a>
 <div class="shell">
+
 <header>
   <div class="brand">
-    <div class="brand-icon">☀️</div>
+    <div class="brand-icon" aria-hidden="true">☀️</div>
     <div>
       <div class="brand-name">http2sun</div>
       <div class="brand-tagline" id="tagline">SOLAR DATA OVER HTTP</div>
     </div>
   </div>
   <div class="header-controls">
-    <select class="lang-select" id="lsel" aria-label="Language">
-      <option value="ar">العربية</option><option value="bn">বাংলা</option>
-      <option value="zh">中文</option><option value="de">Deutsch</option>
-      <option value="en" selected>English</option><option value="es">Español</option>
-      <option value="fr">Français</option><option value="hi">हिंदी</option>
-      <option value="id">Bahasa Indonesia</option><option value="ja">日本語</option>
-      <option value="ko">한국어</option><option value="pt">Português</option>
-      <option value="ru">Русский</option><option value="ur">اردو</option>
-      <option value="vi">Tiếng Việt</option>
-    </select>
-    <button class="theme-btn" id="tbtn" aria-label="Toggle theme">◑</button>
+    <!-- Custom MD3 language dropdown -->
+    <div class="lang-wrap" id="lang-dropdown-wrap">
+      <select id="lsel" aria-hidden="true" tabindex="-1">
+        <option value="ar">ar</option><option value="bn">bn</option>
+        <option value="zh">zh</option><option value="de">de</option>
+        <option value="en" selected>en</option><option value="es">es</option>
+        <option value="fr">fr</option><option value="hi">hi</option>
+        <option value="id">id</option><option value="ja">ja</option>
+        <option value="ko">ko</option><option value="pt">pt</option>
+        <option value="ru">ru</option><option value="ur">ur</option>
+        <option value="vi">vi</option>
+      </select>
+      <button class="lang-btn" id="lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Language">
+        <span class="lang-flag-icon" id="lang-current-flag">🇬🇧</span>
+        <span class="lang-current-name" id="lang-current-name">English</span>
+        <svg class="lang-chevron-icon" width="12" height="8" viewBox="0 0 12 8" fill="none" aria-hidden="true">
+          <path d="M1 1l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <ul class="lang-options" id="lang-options" role="listbox" aria-label="Language" hidden></ul>
+    </div>
+    <!-- Theme toggle -->
+    <button class="theme-btn" id="tbtn" aria-label="Toggle theme" role="switch" aria-checked="false">
+      <span id="theme-icon" aria-hidden="true">☀️</span>
+      <div class="theme-track" aria-hidden="true"><div class="theme-thumb"></div></div>
+      <span id="theme-lbl" style="font-size:.6875rem;font-weight:500">Light</span>
+    </button>
   </div>
 </header>
 
 <div class="panel" id="qpanel">
-  <div class="panel-title" id="ftitle">QUERY</div>
+  <div class="panel-title" id="ftitle">Query</div>
   <main id="qform">
     <div class="form-grid">
       <div class="field">
@@ -127,126 +593,103 @@ footer a:hover{color:var(--accent)}
         <select id="finp-tz">
           <option value="UTC" selected>UTC</option>
           <optgroup label="Africa">
-            <option value="Africa/Cairo">Africa/Cairo</option>
-            <option value="Africa/Casablanca">Africa/Casablanca</option>
-            <option value="Africa/Johannesburg">Africa/Johannesburg</option>
-            <option value="Africa/Lagos">Africa/Lagos</option>
+            <option value="Africa/Cairo">Africa/Cairo</option><option value="Africa/Casablanca">Africa/Casablanca</option>
+            <option value="Africa/Johannesburg">Africa/Johannesburg</option><option value="Africa/Lagos">Africa/Lagos</option>
             <option value="Africa/Nairobi">Africa/Nairobi</option>
           </optgroup>
           <optgroup label="America">
-            <option value="America/Anchorage">America/Anchorage</option>
-            <option value="America/Argentina/Buenos_Aires">America/Argentina/Buenos_Aires</option>
-            <option value="America/Bogota">America/Bogota</option>
-            <option value="America/Chicago">America/Chicago</option>
-            <option value="America/Denver">America/Denver</option>
-            <option value="America/Lima">America/Lima</option>
-            <option value="America/Los_Angeles">America/Los_Angeles</option>
-            <option value="America/Mexico_City">America/Mexico_City</option>
-            <option value="America/New_York">America/New_York</option>
-            <option value="America/Phoenix">America/Phoenix</option>
-            <option value="America/Sao_Paulo">America/Sao_Paulo</option>
-            <option value="America/Toronto">America/Toronto</option>
+            <option value="America/Anchorage">America/Anchorage</option><option value="America/Argentina/Buenos_Aires">America/Argentina/Buenos_Aires</option>
+            <option value="America/Bogota">America/Bogota</option><option value="America/Chicago">America/Chicago</option>
+            <option value="America/Denver">America/Denver</option><option value="America/Lima">America/Lima</option>
+            <option value="America/Los_Angeles">America/Los_Angeles</option><option value="America/Mexico_City">America/Mexico_City</option>
+            <option value="America/New_York">America/New_York</option><option value="America/Phoenix">America/Phoenix</option>
+            <option value="America/Sao_Paulo">America/Sao_Paulo</option><option value="America/Toronto">America/Toronto</option>
             <option value="America/Vancouver">America/Vancouver</option>
           </optgroup>
           <optgroup label="Asia">
-            <option value="Asia/Baghdad">Asia/Baghdad</option>
-            <option value="Asia/Bangkok">Asia/Bangkok</option>
-            <option value="Asia/Colombo">Asia/Colombo</option>
-            <option value="Asia/Dubai">Asia/Dubai</option>
-            <option value="Asia/Hong_Kong">Asia/Hong_Kong</option>
-            <option value="Asia/Jakarta">Asia/Jakarta</option>
-            <option value="Asia/Jerusalem">Asia/Jerusalem</option>
-            <option value="Asia/Karachi">Asia/Karachi</option>
-            <option value="Asia/Kolkata">Asia/Kolkata</option>
-            <option value="Asia/Kuala_Lumpur">Asia/Kuala_Lumpur</option>
-            <option value="Asia/Manila">Asia/Manila</option>
-            <option value="Asia/Riyadh">Asia/Riyadh</option>
-            <option value="Asia/Seoul">Asia/Seoul</option>
-            <option value="Asia/Shanghai">Asia/Shanghai</option>
-            <option value="Asia/Singapore">Asia/Singapore</option>
-            <option value="Asia/Taipei">Asia/Taipei</option>
-            <option value="Asia/Tehran">Asia/Tehran</option>
-            <option value="Asia/Tokyo">Asia/Tokyo</option>
+            <option value="Asia/Baghdad">Asia/Baghdad</option><option value="Asia/Bangkok">Asia/Bangkok</option>
+            <option value="Asia/Colombo">Asia/Colombo</option><option value="Asia/Dubai">Asia/Dubai</option>
+            <option value="Asia/Hong_Kong">Asia/Hong_Kong</option><option value="Asia/Jakarta">Asia/Jakarta</option>
+            <option value="Asia/Jerusalem">Asia/Jerusalem</option><option value="Asia/Karachi">Asia/Karachi</option>
+            <option value="Asia/Kolkata">Asia/Kolkata</option><option value="Asia/Kuala_Lumpur">Asia/Kuala_Lumpur</option>
+            <option value="Asia/Manila">Asia/Manila</option><option value="Asia/Riyadh">Asia/Riyadh</option>
+            <option value="Asia/Seoul">Asia/Seoul</option><option value="Asia/Shanghai">Asia/Shanghai</option>
+            <option value="Asia/Singapore">Asia/Singapore</option><option value="Asia/Taipei">Asia/Taipei</option>
+            <option value="Asia/Tehran">Asia/Tehran</option><option value="Asia/Tokyo">Asia/Tokyo</option>
           </optgroup>
-          <optgroup label="Atlantic">
-            <option value="Atlantic/Reykjavik">Atlantic/Reykjavik</option>
-          </optgroup>
+          <optgroup label="Atlantic"><option value="Atlantic/Reykjavik">Atlantic/Reykjavik</option></optgroup>
           <optgroup label="Australia">
-            <option value="Australia/Adelaide">Australia/Adelaide</option>
-            <option value="Australia/Brisbane">Australia/Brisbane</option>
-            <option value="Australia/Darwin">Australia/Darwin</option>
-            <option value="Australia/Melbourne">Australia/Melbourne</option>
-            <option value="Australia/Perth">Australia/Perth</option>
-            <option value="Australia/Sydney">Australia/Sydney</option>
+            <option value="Australia/Adelaide">Australia/Adelaide</option><option value="Australia/Brisbane">Australia/Brisbane</option>
+            <option value="Australia/Darwin">Australia/Darwin</option><option value="Australia/Melbourne">Australia/Melbourne</option>
+            <option value="Australia/Perth">Australia/Perth</option><option value="Australia/Sydney">Australia/Sydney</option>
           </optgroup>
           <optgroup label="Europe">
-            <option value="Europe/Amsterdam">Europe/Amsterdam</option>
-            <option value="Europe/Athens">Europe/Athens</option>
-            <option value="Europe/Berlin">Europe/Berlin</option>
-            <option value="Europe/Brussels">Europe/Brussels</option>
-            <option value="Europe/Bucharest">Europe/Bucharest</option>
-            <option value="Europe/Dublin">Europe/Dublin</option>
-            <option value="Europe/Helsinki">Europe/Helsinki</option>
-            <option value="Europe/Istanbul">Europe/Istanbul</option>
-            <option value="Europe/Kiev">Europe/Kiev</option>
-            <option value="Europe/Lisbon">Europe/Lisbon</option>
-            <option value="Europe/London">Europe/London</option>
-            <option value="Europe/Madrid">Europe/Madrid</option>
-            <option value="Europe/Moscow">Europe/Moscow</option>
-            <option value="Europe/Oslo">Europe/Oslo</option>
-            <option value="Europe/Paris">Europe/Paris</option>
-            <option value="Europe/Prague">Europe/Prague</option>
-            <option value="Europe/Rome">Europe/Rome</option>
-            <option value="Europe/Stockholm">Europe/Stockholm</option>
-            <option value="Europe/Warsaw">Europe/Warsaw</option>
-            <option value="Europe/Zurich">Europe/Zurich</option>
+            <option value="Europe/Amsterdam">Europe/Amsterdam</option><option value="Europe/Athens">Europe/Athens</option>
+            <option value="Europe/Berlin">Europe/Berlin</option><option value="Europe/Brussels">Europe/Brussels</option>
+            <option value="Europe/Bucharest">Europe/Bucharest</option><option value="Europe/Dublin">Europe/Dublin</option>
+            <option value="Europe/Helsinki">Europe/Helsinki</option><option value="Europe/Istanbul">Europe/Istanbul</option>
+            <option value="Europe/Kiev">Europe/Kiev</option><option value="Europe/Lisbon">Europe/Lisbon</option>
+            <option value="Europe/London">Europe/London</option><option value="Europe/Madrid">Europe/Madrid</option>
+            <option value="Europe/Moscow">Europe/Moscow</option><option value="Europe/Oslo">Europe/Oslo</option>
+            <option value="Europe/Paris">Europe/Paris</option><option value="Europe/Prague">Europe/Prague</option>
+            <option value="Europe/Rome">Europe/Rome</option><option value="Europe/Stockholm">Europe/Stockholm</option>
+            <option value="Europe/Warsaw">Europe/Warsaw</option><option value="Europe/Zurich">Europe/Zurich</option>
           </optgroup>
           <optgroup label="Pacific">
-            <option value="Pacific/Auckland">Pacific/Auckland</option>
-            <option value="Pacific/Fiji">Pacific/Fiji</option>
+            <option value="Pacific/Auckland">Pacific/Auckland</option><option value="Pacific/Fiji">Pacific/Fiji</option>
             <option value="Pacific/Honolulu">Pacific/Honolulu</option>
           </optgroup>
         </select>
       </div>
       <div class="field">
         <label for="finp-ts"><span id="lbl-ts">Timestamp (UTC)</span></label>
-        <div style="display:flex;gap:6px">
-          <input type="number" id="finp-ts" step="1" placeholder="e.g. 1745107200" autocomplete="off" style="flex:1;min-width:0"/>
-          <button type="button" id="btn-now" title="Set to current time" style="background:var(--surface);border:1px solid var(--border);color:var(--text-mid);border-radius:7px;padding:0 11px;font-family:var(--mono);font-size:.78rem;cursor:pointer;white-space:nowrap;transition:border-color .2s,color .2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-mid)'">⟳ Now</button>
+        <div class="ts-row">
+          <input type="number" id="finp-ts" step="1" placeholder="e.g. 1745107200" autocomplete="off"/>
+          <button type="button" id="btn-now" class="btn-now">⟳ Now</button>
         </div>
       </div>
     </div>
-    <!-- Advanced physical parameters (collapsible) -->
-    <details id="adv-details" style="margin-top:10px">
-      <summary style="cursor:pointer;font-family:var(--mono);font-size:.68rem;font-weight:600;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;list-style:none;display:flex;align-items:center;gap:8px;padding:6px 2px;user-select:none">
-        <span style="display:inline-block;transition:transform .2s" id="adv-arrow">▶</span>
+
+    <!-- Advanced physical parameters -->
+    <details id="adv-details" class="adv-details">
+      <summary class="adv-summary">
+        <span class="adv-arrow" id="adv-arrow">▶</span>
         <span id="lbl-adv">Physical parameters</span>
-        <span style="font-size:.60rem;opacity:.5;font-weight:400;margin-left:4px">(elevation · pressure · temperature · ΔT)</span>
+        <span style="font-size:.6875rem;opacity:.5;font-weight:400;margin-left:4px">(elevation · pressure · temperature · ΔT)</span>
       </summary>
-      <div class="form-grid" style="margin-top:10px">
-        <div class="field">
-          <label for="finp-el"><span id="lbl-el">Elevation (m)</span></label>
-          <input type="number" id="finp-el" step="any" min="0" max="9000" placeholder="0" autocomplete="off"/>
+      <div class="adv-body">
+        <div class="form-grid">
+          <div class="field">
+            <label for="finp-el"><span id="lbl-el">Elevation (m)</span></label>
+            <input type="number" id="finp-el" step="any" min="0" max="9000" placeholder="0" autocomplete="off"/>
+          </div>
+          <div class="field">
+            <label for="finp-pres"><span id="lbl-pres">Pressure (hPa)</span></label>
+            <input type="number" id="finp-pres" step="any" min="1" max="1100" placeholder="1013.25" autocomplete="off"/>
+          </div>
+          <div class="field">
+            <label for="finp-temp"><span id="lbl-temp">Temperature (°C)</span></label>
+            <input type="number" id="finp-temp" step="any" min="-90" max="60" placeholder="12" autocomplete="off"/>
+          </div>
+          <div class="field">
+            <label for="finp-dt"><span id="lbl-dt">ΔT (s)</span></label>
+            <input type="number" id="finp-dt" step="any" min="-100" max="300" placeholder="auto" autocomplete="off"/>
+          </div>
         </div>
-        <div class="field">
-          <label for="finp-pres"><span id="lbl-pres">Pressure (hPa)</span></label>
-          <input type="number" id="finp-pres" step="any" min="1" max="1100" placeholder="1013.25" autocomplete="off"/>
-        </div>
-        <div class="field">
-          <label for="finp-temp"><span id="lbl-temp">Temperature (°C)</span></label>
-          <input type="number" id="finp-temp" step="any" min="-90" max="60" placeholder="12" autocomplete="off"/>
-        </div>
-        <div class="field">
-          <label for="finp-dt"><span id="lbl-dt">ΔT (s)</span></label>
-          <input type="number" id="finp-dt" step="any" min="-100" max="300" placeholder="auto" autocomplete="off"/>
-        </div>
+        <p class="adv-hint">NREL SPA params. Leave blank for defaults (0 m · 1013.25 hPa · 12 °C · ΔT auto-estimated via Espenak &amp; Meeus 2006).</p>
       </div>
-      <p style="font-family:var(--mono);font-size:.60rem;color:var(--text-dim);margin-top:8px;line-height:1.5">
-        NREL SPA params. Leave blank for defaults (0 m · 1013.25 hPa · 12 °C · ΔT auto-estimated via Espenak &amp; Meeus 2006).
-      </p>
     </details>
+
     <div class="submit-row">
-      <button class="btn-submit" id="sbtn">☀ <span id="btn-lbl">Get Solar Data</span></button>
+      <button class="btn-submit" id="sbtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <span id="btn-lbl">Get Solar Data</span>
+      </button>
     </div>
   </main>
 </div>
@@ -261,7 +704,6 @@ footer a:hover{color:var(--accent)}
 </div>
 
 <script>
-// ── I18N ──────────────────────────────────────────────────────────────────
 const TR={
 en:{tag:'SOLAR DATA OVER HTTP',ft:'QUERY',lat:'Latitude',lon:'Longitude',tz:'Observer timezone',ts:'Timestamp (UTC)',btn:'Get Solar Data',res:'SOLAR DATA',
   sr:'Sunrise',ss:'Sunset',sn:'Solar Noon',dl:'Day Length',
@@ -727,6 +1169,132 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
     applyLang(detected);
   }
 })();
+
+// ══════════════════════════════════════════════════════════════════
+// MD3 THEME TOGGLE
+// The original JS does addEventListener('click', toggleTheme) and
+// captures the OLD function reference — reassigning toggleTheme won't
+// affect the listener. Fix: clone the button node (drops all listeners),
+// then wire a clean handler that never touches .textContent on the button.
+// ══════════════════════════════════════════════════════════════════
+(function patchThemeBtn(){
+  // 1. Clone button — removes all event listeners
+  const old = document.getElementById('tbtn');
+  const fresh = old.cloneNode(true);
+  old.parentNode.replaceChild(fresh, old);
+
+  // 2. Rebuild inner HTML unconditionally — the localStorage init may have
+  //    already called tbtn.textContent = '◑' which wipes all child nodes.
+  //    cloneNode copies whatever is currently in the DOM, so we must restore.
+  fresh.innerHTML = [
+    '<span id="theme-icon" aria-hidden="true">☀️</span>',
+    '<div class="theme-track" aria-hidden="true"><div class="theme-thumb"></div></div>',
+    '<span id="theme-lbl" style="font-size:.6875rem;font-weight:500">Light</span>'
+  ].join('');
+
+  // 2. Sync visual state from current dataset.theme
+  function syncBtn(){
+    const dark = document.documentElement.dataset.theme === 'dark';
+    fresh.setAttribute('aria-checked', dark ? 'false' : 'true');
+    // Use querySelector inside the button — safe, children are intact
+    const icon = fresh.querySelector('#theme-icon');
+    const lbl  = fresh.querySelector('#theme-lbl');
+    if(icon) icon.textContent = dark ? '☀️' : '🌙';
+    if(lbl)  lbl.textContent  = dark ? 'Light' : 'Dark';
+  }
+
+  // 3. Click handler — toggle theme + update visuals, no .textContent on button
+  fresh.addEventListener('click', function(){
+    const r = document.documentElement;
+    const n = r.dataset.theme === 'dark' ? 'light' : 'dark';
+    r.dataset.theme = n;
+    syncBtn();
+    try { localStorage.setItem('h2s_t', n); } catch(e) {}
+  });
+
+  // 4. Initial sync (localStorage init may have already changed dataset.theme)
+  syncBtn();
+})();
+
+// ══════════════════════════════════════════════════════════════════
+// CUSTOM LANGUAGE DROPDOWN
+// ══════════════════════════════════════════════════════════════════
+const LANG_META = {
+  ar: {flag:'🇸🇦', name:'العربية'},
+  bn: {flag:'🇧🇩', name:'বাংলা'},
+  zh: {flag:'🇨🇳', name:'中文'},
+  de: {flag:'🇩🇪', name:'Deutsch'},
+  en: {flag:'🇬🇧', name:'English'},
+  es: {flag:'🇪🇸', name:'Español'},
+  fr: {flag:'🇫🇷', name:'Français'},
+  hi: {flag:'🇮🇳', name:'हिन्दी'},
+  id: {flag:'🇮🇩', name:'Bahasa Indonesia'},
+  ja: {flag:'🇯🇵', name:'日本語'},
+  ko: {flag:'🇰🇷', name:'한국어'},
+  pt: {flag:'🇧🇷', name:'Português'},
+  ru: {flag:'🇷🇺', name:'Русский'},
+  ur: {flag:'🇵🇰', name:'اردو'},
+  vi: {flag:'🇻🇳', name:'Tiếng Việt'},
+};
+const _lb=document.getElementById('lang-btn'),
+      _lo=document.getElementById('lang-options'),
+      _lf=document.getElementById('lang-current-flag'),
+      _ln=document.getElementById('lang-current-name');
+
+Object.entries(LANG_META).forEach(([c,m])=>{
+  const li=document.createElement('li');
+  li.className='lang-option'; li.setAttribute('role','option');
+  li.setAttribute('aria-selected','false'); li.dataset.value=c;
+  li.innerHTML=`<span class="lang-flag-icon">${m.flag}</span><span>${m.name}</span>`;
+  li.addEventListener('click',e=>{e.stopPropagation();_pk(c);_cl();});
+  _lo.appendChild(li);
+});
+
+function _ud(c){
+  const m=LANG_META[c]||LANG_META.en;
+  _lf.textContent=m.flag; _ln.textContent=m.name;
+  _lo.querySelectorAll('[role=option]').forEach(o=>
+    o.setAttribute('aria-selected', o.dataset.value===c?'true':'false'));
+}
+function _pk(c){
+  document.getElementById('lsel').value=c;
+  _ud(c); applyLang(c);
+}
+function _op(){
+  _lo.hidden=false; _lb.setAttribute('aria-expanded','true'); _lb.classList.add('open');
+  const s=_lo.querySelector('[aria-selected="true"]'); if(s)s.scrollIntoView({block:'nearest'});
+}
+function _cl(){
+  _lo.hidden=true; _lb.setAttribute('aria-expanded','false'); _lb.classList.remove('open');
+}
+_lb.addEventListener('click',e=>{e.stopPropagation(); _lo.hidden?_op():_cl();});
+_lo.addEventListener('keydown',e=>{
+  const it=Array.from(_lo.querySelectorAll('.lang-option')), ix=it.indexOf(document.activeElement);
+  if(e.key==='ArrowDown'){e.preventDefault();it[(ix+1)%it.length].focus();}
+  if(e.key==='ArrowUp'){e.preventDefault();it[(ix-1+it.length)%it.length].focus();}
+  if(e.key==='Enter'||e.key===' '){e.preventDefault();document.activeElement.click();}
+  if(e.key==='Escape'){_cl();_lb.focus();} if(e.key==='Tab')_cl();
+});
+_lb.addEventListener('keydown',e=>{
+  if(e.key==='Escape')_cl();
+  if((e.key==='ArrowDown'||e.key==='Enter'||e.key===' ')&&_lo.hidden){
+    e.preventDefault(); _op(); _lo.querySelector('.lang-option')?.focus();
+  }
+});
+document.addEventListener('click', _cl);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape')_cl(); });
+
+// Override the original lsel change listener with our custom one
+document.getElementById('lsel').removeEventListener('change', ()=>{});
+document.getElementById('lsel').addEventListener('change', e=>applyLang(e.target.value));
+
+// Also rewire adv-details arrow (adv-summary instead of inline summary)
+document.getElementById('adv-details').addEventListener('toggle', e=>{
+  document.getElementById('adv-arrow').style.transform = e.target.open ? 'rotate(90deg)' : '';
+});
+
+// Init display with currently detected language
+_ud(document.getElementById('lsel').value);
 </script>
 </body>
 </html>
