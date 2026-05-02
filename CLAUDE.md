@@ -96,7 +96,7 @@ The caller can override with an explicit `delta_t` field in the JSON body.
 │   └── windows_build.cmd / windows_run.cmd
 ├── go.mod                        # Requires go-spa
 ├── go.sum
-├── LICENSE
+├── LICENSE                       # Apache 2.0
 ├── README.md
 └── CLAUDE.md
 ```

@@ -41,7 +41,7 @@ LABEL org.opencontainers.image.title="http2sun" \
       org.opencontainers.image.description="HTTP Server → sun (Go)" \
       org.opencontainers.image.source="https://github.com/letstool/http2sun" \
       org.opencontainers.image.authors="LetsTool.net" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="Apache-2.0"
 
 USER 65534:65534
 
